@@ -54,6 +54,7 @@
   /* card */
   .card{position:relative;border-radius:20px;aspect-ratio:1.58/1;background:linear-gradient(135deg,var(--bordeaux) 0%,var(--bordeaux-dark) 58%,var(--bordeaux-deep) 100%);color:var(--white);padding:18px;overflow:hidden;box-shadow:0 16px 30px -12px rgba(74,12,22,0.55);}
   .card::before{content:'';position:absolute;top:-40%;right:-30%;width:140%;height:220%;background:linear-gradient(100deg,transparent 46%,rgba(255,255,255,0.16) 50%,rgba(255,255,255,0.05) 54%,transparent 58%);transform:rotate(8deg);}
+  .card-bird{position:absolute;right:-6%;bottom:-6%;width:62%;height:auto;opacity:0.14;z-index:1;pointer-events:none;user-select:none;}
   .card-top{display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:2;}
   .card-top .club{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;opacity:0.92;}
   .card-top .kind{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:0.14em;text-transform:uppercase;opacity:0.65;margin-top:2px;}
@@ -186,6 +187,7 @@
       <div class="view active" id="view-tessera">
         <div class="section-label">La mia tessera</div>
         <div class="card">
+          <img class="card-bird" src="bird-watermark.png" alt="">
           <div class="card-top">
             <div><div class="club">U.S. Tavernola</div><div class="kind">Tessera socio digitale</div></div>
             <div class="tier-chip" id="tier-chip">—</div>
