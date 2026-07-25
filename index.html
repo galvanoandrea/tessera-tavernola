@@ -23,7 +23,8 @@
   /* topbar */
   .appbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid var(--line);}
   .brand{display:flex;align-items:center;gap:9px;}
-  .brand img{width:38px;height:47px;object-fit:contain;filter:drop-shadow(0 0 1px rgba(20,16,15,0.35));}
+  .crest-frame{width:38px;height:47px;border-radius:4px;box-shadow:0 0 0 1px rgba(20,16,15,0.18);overflow:hidden;flex:0 0 auto;}
+  .brand img{width:100%;height:100%;object-fit:contain;display:block;}
   .brand-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;text-transform:uppercase;}
   .logout{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;border:1px solid var(--line);padding:6px 10px;border-radius:20px;}
 
@@ -173,7 +174,7 @@
   <div id="view-app" class="hide" style="display:flex;flex-direction:column;min-height:100vh;">
     <div class="appbar">
       <div class="brand">
-        <img id="crest-img" src="" alt="Stemma">
+        <div class="crest-frame"><img id="crest-img" src="" alt="Stemma"></div>
         <div class="brand-name">Tavernola</div>
       </div>
       <div class="logout" id="btn-logout">Esci</div>
