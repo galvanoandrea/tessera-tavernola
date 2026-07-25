@@ -169,6 +169,17 @@
   .chant .c-line em{font-style:normal;color:var(--gold-light);}
   .chant .c-sub{position:relative;z-index:2;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;opacity:0.8;margin-top:9px;}
 
+  /* double points campaign */
+  .promo{display:flex;align-items:center;gap:12px;margin-top:18px;border-radius:16px;padding:14px 16px;background:linear-gradient(120deg,#1B1614 0%,#2E2622 100%);color:var(--gold-light);box-shadow:0 12px 22px -14px rgba(20,16,15,0.7);}
+  .promo .p-mult{flex:0 0 auto;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:26px;line-height:1;color:var(--gold);}
+  .promo .p-t{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;line-height:1.05;text-transform:uppercase;color:var(--white);}
+  .promo .p-d{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;margin-top:4px;opacity:0.85;}
+  .camp{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:8px;}
+  .camp .c-m{flex:0 0 auto;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:20px;color:var(--bordeaux);}
+  .camp .c-i{flex:1;min-width:0;}
+  .camp .c-n{font-size:13.5px;font-weight:700;}
+  .camp .c-w{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-soft);margin-top:3px;letter-spacing:0.03em;text-transform:uppercase;}
+
   /* birthday */
   .bday{display:flex;align-items:center;gap:12px;margin-top:18px;border-radius:16px;padding:14px 16px;color:var(--white);background:linear-gradient(120deg,var(--bordeaux) 0%,var(--bordeaux-dark) 70%);box-shadow:0 12px 22px -14px rgba(74,12,22,0.6);}
   .bday .b-ico{font-size:24px;line-height:1;flex:0 0 auto;}
@@ -353,6 +364,7 @@
           </div>
         </div>
 
+        <div id="campaign-box"></div>
         <div id="bday-box"></div>
         <div id="notice-list"></div>
 
@@ -468,6 +480,32 @@
             <div class="field"><label>Punti presenza (check-in)</label><input type="number" id="n-points" value="10" min="0" step="1"></div>
             <button class="btn btn-primary" type="submit">Pubblica avviso</button>
           </form>
+        </div>
+
+        <div class="section-label">Punti doppi a tempo</div>
+        <div class="panel">
+          <div id="campaign-msg"></div>
+          <form id="form-campaign">
+            <div class="field"><label>Titolo</label><input type="text" id="cp-title" placeholder="Punti doppi di Ferragosto" required></div>
+            <div class="field"><label>Moltiplicatore</label>
+              <select id="cp-mult">
+                <option value="2">×2 — punti doppi</option>
+                <option value="2.5">×2,5</option>
+                <option value="3">×3 — punti tripli</option>
+              </select>
+            </div>
+            <div class="field"><label>Su cosa vale</label>
+              <select id="cp-scope">
+                <option value="tutto">Tutto (bar, partite, eventi, volontariato)</option>
+                <option value="bar">Solo consumazioni al bar</option>
+                <option value="eventi">Solo partite, eventi e volontariato</option>
+              </select>
+            </div>
+            <div class="field"><label>Inizio</label><input type="datetime-local" id="cp-from" required></div>
+            <div class="field"><label>Fine</label><input type="datetime-local" id="cp-to" required></div>
+            <button class="btn btn-primary" type="submit">Attiva promozione</button>
+          </form>
+          <div id="campaign-list" style="margin-top:16px;"></div>
         </div>
 
         <div class="section-label">Impostazioni club</div>
@@ -592,6 +630,7 @@ async function loadEverything(){
   await loadNotices();
   await loadLeaderboard();
   await loadSettings();
+  await loadCampaigns();
   renderBirthday();
 
   if(myProfile.is_staff){
@@ -629,6 +668,7 @@ async function refreshData(){
     await loadFamily();
     await loadNotices();
     await loadLeaderboard();
+    await loadCampaigns();
   } finally {
     refreshing = false;
   }
@@ -742,6 +782,134 @@ async function generateQR(){
 
 function escapeHtml(str){
   const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML;
+}
+
+/* ---------- PUNTI DOPPI ---------- */
+let campaigns = [];
+
+const SCOPE_LABEL = {
+  tutto: 'su tutto',
+  bar: 'sulle consumazioni al bar',
+  eventi: 'su partite, eventi e volontariato'
+};
+
+function fmtMult(m){
+  const n = Number(m);
+  return '×' + (n === Math.round(n) ? n : String(n).replace('.', ','));
+}
+
+function fmtWhen(iso){
+  const d = new Date(iso);
+  const now = new Date();
+  const time = d.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+  const sameDay = d.toDateString() === now.toDateString();
+  if(sameDay) return 'oggi alle ' + time;
+  const withinWeek = (d - now) < 7*86400000 && d > now;
+  if(withinWeek) return d.toLocaleDateString('it-IT', { weekday:'long' }) + ' alle ' + time;
+  return d.toLocaleDateString('it-IT', { day:'numeric', month:'short' }) + ' alle ' + time;
+}
+
+function liveCampaign(){
+  const now = Date.now();
+  return campaigns.find(c => c.active &&
+    new Date(c.starts_at).getTime() <= now && new Date(c.ends_at).getTime() >= now);
+}
+
+async function loadCampaigns(){
+  const { data } = await sb.from('point_campaigns').select('*')
+    .order('starts_at', { ascending:false });
+  campaigns = data || [];
+  renderCampaignBanner();
+  renderCampaignsAdmin();
+}
+
+function renderCampaignBanner(){
+  const el = $('campaign-box');
+  if(!el) return;
+  const c = liveCampaign();
+  if(!c){ el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="promo">'+
+    '<div class="p-mult">'+fmtMult(c.multiplier)+'</div>'+
+    '<div><div class="p-t">'+escapeHtml(c.title)+'</div>'+
+    '<div class="p-d">'+escapeHtml(SCOPE_LABEL[c.scope] || '')+' · fino a '+escapeHtml(fmtWhen(c.ends_at))+'</div></div>'+
+  '</div>';
+}
+
+function renderCampaignsAdmin(){
+  const el = $('campaign-list');
+  if(!el) return;
+  if(!campaigns.length){ el.innerHTML = '<div class="empty">Nessuna promozione creata.</div>'; return; }
+  const now = Date.now();
+  el.innerHTML = campaigns.map(c => {
+    const from = new Date(c.starts_at).getTime(), to = new Date(c.ends_at).getTime();
+    let stato = 'Conclusa';
+    if(!c.active) stato = 'Disattivata';
+    else if(now < from) stato = 'Programmata';
+    else if(now <= to) stato = 'In corso';
+    return '<div class="camp">'+
+      '<div class="c-m">'+fmtMult(c.multiplier)+'</div>'+
+      '<div class="c-i">'+
+        '<div class="c-n">'+escapeHtml(c.title)+'<span class="tag">'+stato+'</span></div>'+
+        '<div class="c-w">'+escapeHtml(SCOPE_LABEL[c.scope] || '')+' · '+
+          escapeHtml(fmtWhen(c.starts_at))+' → '+escapeHtml(fmtWhen(c.ends_at))+'</div>'+
+        '<div class="fam-actions">'+
+          '<button class="btn-mini'+(c.active?'':' primary')+'" data-toggle-camp="'+escapeAttr(c.id)+'">'+
+            (c.active ? 'Disattiva' : 'Riattiva')+'</button>'+
+          '<button class="btn-mini" data-del-camp="'+escapeAttr(c.id)+'">Elimina</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function setCampaignMsg(msg, isError){
+  const el = $('campaign-msg');
+  if(!msg){ el.innerHTML=''; return; }
+  el.innerHTML = '<div class="msg '+(isError?'msg-error':'msg-ok')+'">'+escapeHtml(msg)+'</div>';
+}
+
+async function createCampaign(e){
+  e.preventDefault();
+  setCampaignMsg('');
+  const from = $('cp-from').value, to = $('cp-to').value;
+  if(!from || !to || new Date(to) <= new Date(from)){
+    setCampaignMsg('La fine deve essere successiva all’inizio.', true);
+    return;
+  }
+  const { error } = await sb.from('point_campaigns').insert({
+    title: $('cp-title').value.trim(),
+    multiplier: parseFloat($('cp-mult').value),
+    scope: $('cp-scope').value,
+    starts_at: new Date(from).toISOString(),
+    ends_at: new Date(to).toISOString(),
+    created_by: myProfile.id
+  });
+  if(error){ setCampaignMsg(error.message, true); return; }
+  $('form-campaign').reset();
+  await loadCampaigns();
+  setCampaignMsg('Promozione attivata.', false);
+}
+
+async function handleCampaignAction(e){
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  const d = btn.dataset;
+
+  if(d.toggleCamp){
+    const c = campaigns.find(x => x.id === d.toggleCamp);
+    const { error } = await sb.from('point_campaigns')
+      .update({ active: !(c && c.active) }).eq('id', d.toggleCamp);
+    if(error){ setCampaignMsg(error.message, true); return; }
+    await loadCampaigns();
+    return;
+  }
+
+  if(d.delCamp){
+    if(!confirm('Eliminare questa promozione? I punti già assegnati restano invariati.')) return;
+    const { error } = await sb.from('point_campaigns').delete().eq('id', d.delCamp);
+    if(error){ setCampaignMsg(error.message, true); return; }
+    await loadCampaigns();
+  }
 }
 
 /* ---------- COMPLEANNO ---------- */
@@ -1264,6 +1432,8 @@ function bindEvents(){
     await loadLeaderboard();
   });
 
+  $('form-campaign').addEventListener('submit', createCampaign);
+  $('view-avvisi').addEventListener('click', handleCampaignAction);
   $('form-settings').addEventListener('submit', saveSettings);
   $('form-notice').addEventListener('submit', createNotice);
   $('view-avvisi').addEventListener('click', handleNoticeAction);
