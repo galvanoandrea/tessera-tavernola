@@ -104,6 +104,21 @@
   .qr-box{width:52px;height:52px;background:var(--white);border-radius:6px;padding:3px;}
   .qr-box canvas{width:100% !important;height:100% !important;}
 
+  /* notices */
+  #notice-list .section-label{margin-top:20px;}
+  .notice{display:flex;gap:12px;border:1px solid var(--line);border-left:3px solid var(--bordeaux);border-radius:14px;padding:12px;margin-bottom:9px;background:var(--white);}
+  .notice.past{border-left-color:var(--line);opacity:0.65;}
+  .notice .n-date{flex:0 0 auto;width:42px;text-align:center;padding-top:2px;}
+  .notice .n-day{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:22px;line-height:1;color:var(--bordeaux);}
+  .notice .n-mon{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-soft);margin-top:3px;}
+  .notice .n-body{flex:1;min-width:0;}
+  .notice .n-title{font-size:13.5px;font-weight:700;line-height:1.3;}
+  .notice .n-meta{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-soft);margin-top:4px;}
+  .notice .n-text{font-size:12px;color:var(--ink-soft);margin-top:5px;line-height:1.4;}
+  .n-kind{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.09em;text-transform:uppercase;padding:2px 7px;border-radius:20px;background:var(--bordeaux);color:var(--white);font-weight:600;margin-bottom:5px;}
+  .n-kind.evento{background:var(--gold);color:var(--black);}
+  .n-kind.avviso{background:var(--black);}
+
   /* points */
   .points-box{margin-top:16px;border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--white);}
   .points-row{display:flex;justify-content:space-between;align-items:baseline;}
@@ -247,6 +262,8 @@
           </div>
         </div>
 
+        <div id="notice-list"></div>
+
         <div class="points-box">
           <div class="points-row"><div class="points-num" id="points-total">0<small>punti</small></div><div class="tier-chip" id="tier-chip-2">—</div></div>
           <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
@@ -331,6 +348,31 @@
         </div>
       </div>
 
+      <!-- AVVISI (solo staff) -->
+      <div class="view" id="view-avvisi">
+        <div class="section-label">Nuovo avviso</div>
+        <div class="panel">
+          <div id="notice-msg"></div>
+          <form id="form-notice">
+            <div class="field"><label>Titolo</label><input type="text" id="n-title" placeholder="Prima Squadra — Tavernola vs …" required></div>
+            <div class="field"><label>Tipo</label>
+              <select id="n-kind">
+                <option value="partita">Partita</option>
+                <option value="evento">Evento</option>
+                <option value="avviso">Avviso</option>
+              </select>
+            </div>
+            <div class="field"><label>Data e ora</label><input type="datetime-local" id="n-when"></div>
+            <div class="field"><label>Luogo</label><input type="text" id="n-place" placeholder="Campo Comunale"></div>
+            <div class="field"><label>Dettagli</label><input type="text" id="n-body" placeholder="Vi aspettiamo numerosi"></div>
+            <button class="btn btn-primary" type="submit">Pubblica avviso</button>
+          </form>
+        </div>
+
+        <div class="section-label">Avvisi pubblicati</div>
+        <div id="notice-admin-list"></div>
+      </div>
+
       <!-- BAR (solo staff) -->
       <div class="view" id="view-bar">
         <div class="section-label">Pannello Bar — cerca tesserato</div>
@@ -347,6 +389,7 @@
       <button class="tab active" data-view="tessera"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="2.4" stroke="currentColor" stroke-width="1.6"/><path d="M6.5 15h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Tessera</span></button>
       <button class="tab" data-view="punti"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 4.6 5 .7-3.6 3.5.85 5-4.45-2.4-4.45 2.4.85-5L4.8 8.3l5-.7L12 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span>Punti</span></button>
       <button class="tab" data-view="premi"><svg viewBox="0 0 24 24" fill="none"><path d="M20 7H4l1.2 11.2a2 2 0 002 1.8h9.6a2 2 0 002-1.8L20 7z" stroke="currentColor" stroke-width="1.6"/><path d="M8 7a4 4 0 018 0" stroke="currentColor" stroke-width="1.6"/></svg><span>Premi</span></button>
+      <button class="tab hide" id="tab-avvisi" data-view="avvisi"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10v4h3l6 4V6l-6 4H4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M17.5 9.2a4 4 0 010 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Avvisi</span></button>
       <button class="tab hide" id="tab-bar" data-view="bar"><svg viewBox="0 0 24 24" fill="none"><path d="M5 9h14l-1 9a2 2 0 01-2 2H8a2 2 0 01-2-2L5 9z" stroke="currentColor" stroke-width="1.6"/><path d="M9 9V6a3 3 0 016 0v3" stroke="currentColor" stroke-width="1.6"/></svg><span>Bar</span></button>
     </div>
   </div>
@@ -379,6 +422,7 @@ let transactions = [];
 let balance = 0;
 let family = [];
 let familyRequests = [];
+let notices = [];
 
 function $(id){ return document.getElementById(id); }
 
@@ -419,8 +463,12 @@ async function loadEverything(){
 
   await loadActiveProfile();
   await loadFamily();
+  await loadNotices();
 
-  if(myProfile.is_staff){ $('tab-bar').classList.remove('hide'); }
+  if(myProfile.is_staff){
+    $('tab-bar').classList.remove('hide');
+    $('tab-avvisi').classList.remove('hide');
+  }
 }
 
 async function loadActiveProfile(){
@@ -549,6 +597,123 @@ async function generateQR(){
 
 function escapeHtml(str){
   const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML;
+}
+
+/* ---------- AVVISI ---------- */
+const MONTHS_SHORT = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+
+async function loadNotices(){
+  const { data } = await sb.from('announcements').select('*')
+    .order('event_at', { ascending:true, nullsFirst:false });
+  notices = data || [];
+  renderNotices();
+  renderNoticesAdmin();
+}
+
+function noticeIsCurrent(n){
+  if(!n.event_at) return true;
+  // a match stays on the board until a few hours after kick-off
+  return new Date(n.event_at).getTime() >= Date.now() - 6*3600*1000;
+}
+
+function noticeDateBlock(n){
+  if(!n.event_at) return '<div class="n-date"><div class="n-day">•</div></div>';
+  const d = new Date(n.event_at);
+  return '<div class="n-date"><div class="n-day">'+d.getDate()+'</div>'+
+         '<div class="n-mon">'+MONTHS_SHORT[d.getMonth()]+'</div></div>';
+}
+
+function noticeMeta(n){
+  const bits = [];
+  if(n.event_at){
+    const d = new Date(n.event_at);
+    bits.push(d.toLocaleDateString('it-IT',{weekday:'long'}) + ' · ' +
+              d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}));
+  }
+  if(n.location) bits.push(n.location);
+  return bits.join(' · ');
+}
+
+function noticeCard(n, extraClass, actions){
+  const meta = noticeMeta(n);
+  return '<div class="notice'+(extraClass?' '+extraClass:'')+'">'+
+    noticeDateBlock(n)+
+    '<div class="n-body">'+
+      '<span class="n-kind '+escapeAttr(n.kind)+'">'+escapeHtml(n.kind)+'</span>'+
+      '<div class="n-title">'+escapeHtml(n.title)+'</div>'+
+      (meta ? '<div class="n-meta">'+escapeHtml(meta)+'</div>' : '')+
+      (n.body ? '<div class="n-text">'+escapeHtml(n.body)+'</div>' : '')+
+      (actions || '')+
+    '</div>'+
+  '</div>';
+}
+
+function renderNotices(){
+  const el = $('notice-list');
+  const current = notices.filter(n => n.active && noticeIsCurrent(n)).slice(0, 4);
+  if(!current.length){ el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="section-label">Prossimi appuntamenti</div>' +
+    current.map(n => noticeCard(n)).join('');
+}
+
+function renderNoticesAdmin(){
+  const el = $('notice-admin-list');
+  if(!el) return;
+  if(!notices.length){ el.innerHTML = '<div class="empty">Nessun avviso pubblicato.</div>'; return; }
+  el.innerHTML = notices.map(n => {
+    const actions = '<div class="fam-actions">'+
+      '<button class="btn-mini'+(n.active?'':' primary')+'" data-toggle-notice="'+escapeAttr(n.id)+'">'+
+        (n.active ? 'Nascondi' : 'Ripubblica')+'</button>'+
+      '<button class="btn-mini" data-del-notice="'+escapeAttr(n.id)+'">Elimina</button>'+
+    '</div>';
+    return noticeCard(n, (n.active && noticeIsCurrent(n)) ? '' : 'past', actions);
+  }).join('');
+}
+
+function setNoticeMsg(msg, isError){
+  const el = $('notice-msg');
+  if(!msg){ el.innerHTML=''; return; }
+  el.innerHTML = '<div class="msg '+(isError?'msg-error':'msg-ok')+'">'+escapeHtml(msg)+'</div>';
+}
+
+async function createNotice(e){
+  e.preventDefault();
+  setNoticeMsg('');
+  const when = $('n-when').value;
+  const { error } = await sb.from('announcements').insert({
+    title: $('n-title').value.trim(),
+    kind: $('n-kind').value,
+    event_at: when ? new Date(when).toISOString() : null,
+    location: $('n-place').value.trim() || null,
+    body: $('n-body').value.trim() || null,
+    created_by: myProfile.id
+  });
+  if(error){ setNoticeMsg(error.message, true); return; }
+  $('form-notice').reset();
+  await loadNotices();
+  setNoticeMsg('Avviso pubblicato.', false);
+}
+
+async function handleNoticeAction(e){
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  const d = btn.dataset;
+
+  if(d.toggleNotice){
+    const n = notices.find(x => x.id === d.toggleNotice);
+    const { error } = await sb.from('announcements')
+      .update({ active: !(n && n.active) }).eq('id', d.toggleNotice);
+    if(error){ setNoticeMsg(error.message, true); return; }
+    await loadNotices();
+    return;
+  }
+
+  if(d.delNotice){
+    if(!confirm('Eliminare definitivamente questo avviso?')) return;
+    const { error } = await sb.from('announcements').delete().eq('id', d.delNotice);
+    if(error){ setNoticeMsg(error.message, true); return; }
+    await loadNotices();
+  }
 }
 
 /* ---------- PROFILO ---------- */
@@ -817,7 +982,7 @@ function bindEvents(){
   $('btn-logout').addEventListener('click', async ()=>{
     await sb.auth.signOut();
     session = null; profile = null; myProfile = null; activeProfileId = null;
-    family = []; familyRequests = [];
+    family = []; familyRequests = []; notices = [];
     showAuth();
   });
 
@@ -835,6 +1000,9 @@ function bindEvents(){
   $('form-add-child').addEventListener('submit', addManagedMember);
   $('form-link-child').addEventListener('submit', requestFamilyLink);
   $('view-profilo').addEventListener('click', handleFamilyAction);
+
+  $('form-notice').addEventListener('submit', createNotice);
+  $('view-avvisi').addEventListener('click', handleNoticeAction);
 
   $('bar-search-btn').addEventListener('click', barSearch);
   $('bar-search').addEventListener('keydown', (e)=>{ if(e.key==='Enter') barSearch(); });
