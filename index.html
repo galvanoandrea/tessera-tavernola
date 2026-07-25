@@ -27,6 +27,40 @@
   .brand img{width:100%;height:100%;object-fit:contain;display:block;}
   .brand-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;text-transform:uppercase;}
   .logout{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;border:1px solid var(--line);padding:6px 10px;border-radius:20px;}
+  .appbar-actions{display:flex;align-items:center;gap:7px;}
+  .appbar-btn{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bordeaux);letter-spacing:0.06em;text-transform:uppercase;font-weight:600;cursor:pointer;border:1px solid var(--bordeaux);padding:6px 10px;border-radius:20px;}
+  .appbar-btn.active{background:var(--bordeaux);color:var(--white);}
+
+  /* viewing another family member */
+  .viewing-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(180,31,50,0.07);border:1px solid rgba(180,31,50,0.22);border-radius:12px;padding:10px 12px;margin-bottom:14px;}
+  .viewing-banner .vb-text{font-size:12px;color:var(--bordeaux-dark);line-height:1.35;}
+  .viewing-banner .vb-text b{font-weight:800;}
+  .viewing-banner button{flex:0 0 auto;font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.04em;background:var(--bordeaux);color:var(--white);border:none;padding:6px 10px;border-radius:20px;cursor:pointer;font-weight:600;}
+
+  /* profile */
+  .panel{border:1px solid var(--line);border-radius:16px;padding:16px;}
+  .kv{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink-soft);}
+  .kv:last-of-type{border-bottom:none;}
+  .kv b{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--black);font-weight:600;}
+  .seg-row{display:flex;gap:6px;margin-bottom:14px;}
+  .seg{flex:1;font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.03em;padding:8px 6px;border-radius:20px;border:1.3px solid var(--line);background:var(--white);cursor:pointer;font-weight:600;color:var(--ink-soft);}
+  .seg.active{background:var(--black);color:var(--white);border-color:var(--black);}
+
+  /* family */
+  .fam-total{display:flex;justify-content:space-between;align-items:baseline;border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:10px;}
+  .fam-total .ft-num{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:28px;line-height:1;color:var(--bordeaux);}
+  .fam-total .ft-label{font-size:11px;color:var(--ink-soft);}
+  .fam{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:8px;}
+  .fam .fam-av{width:38px;height:38px;border-radius:50%;background:var(--cream);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;color:var(--bordeaux-deep);flex:0 0 auto;overflow:hidden;}
+  .fam .fam-av img{width:100%;height:100%;object-fit:cover;}
+  .fam .fam-info{flex:1;min-width:0;}
+  .fam .fam-name{font-size:13.5px;font-weight:700;}
+  .fam .fam-meta{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-soft);margin-top:3px;letter-spacing:0.03em;text-transform:uppercase;}
+  .fam .fam-pts{font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:var(--bordeaux);flex:0 0 auto;}
+  .fam-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
+  .btn-mini{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.04em;padding:5px 9px;border-radius:20px;border:1.2px solid var(--line);background:var(--white);color:var(--ink-soft);cursor:pointer;font-weight:600;}
+  .btn-mini.primary{background:var(--bordeaux);border-color:var(--bordeaux);color:var(--white);}
+  .tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:0.08em;text-transform:uppercase;padding:2px 7px;border-radius:20px;background:var(--cream);color:var(--ink-soft);margin-left:6px;vertical-align:middle;}
 
   .content{flex:1;overflow-y:auto;padding:18px 20px 90px;}
   .section-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--ink-soft);margin:18px 0 10px;}
@@ -178,10 +212,18 @@
         <div class="crest-frame"><img id="crest-img" src="crest.png" alt="Stemma"></div>
         <div class="brand-name">Tavernola</div>
       </div>
-      <div class="logout" id="btn-logout">Esci</div>
+      <div class="appbar-actions">
+        <div class="appbar-btn" id="btn-profilo">Profilo</div>
+        <div class="logout" id="btn-logout">Esci</div>
+      </div>
     </div>
 
     <div class="content">
+
+      <div class="viewing-banner hide" id="viewing-banner">
+        <div class="vb-text">Stai gestendo la tessera di <b id="viewing-name">—</b></div>
+        <button type="button" id="viewing-back">Torna a me</button>
+      </div>
 
       <!-- TESSERA -->
       <div class="view active" id="view-tessera">
@@ -228,6 +270,67 @@
         <div id="rewards-list"><div class="empty">Caricamento premi…</div></div>
       </div>
 
+      <!-- PROFILO -->
+      <div class="view" id="view-profilo">
+        <div class="section-label" id="profile-section-label">I miei dati</div>
+        <div id="profile-msg"></div>
+        <form class="panel" id="form-profile">
+          <div class="field"><label>Nome e cognome</label><input type="text" id="p-name" required></div>
+          <div class="field"><label>Ruolo</label>
+            <select id="p-role">
+              <option value="tifoso">Tifoso</option>
+              <option value="giocatore">Giocatore</option>
+              <option value="genitore">Genitore</option>
+              <option value="mister">Mister</option>
+              <option value="dirigente">Dirigente</option>
+            </select>
+          </div>
+          <div class="field"><label>Email</label><input type="email" id="p-email" placeholder="—"></div>
+          <div class="field"><label>Telefono</label><input type="tel" id="p-phone" placeholder="—"></div>
+          <div class="field"><label>Data di nascita</label><input type="date" id="p-birth"></div>
+          <div class="field" style="margin-bottom:4px;"><label>Città</label><input type="text" id="p-city" placeholder="—"></div>
+          <div class="kv"><span>N. tessera</span><b id="p-code">—</b></div>
+          <div class="kv"><span>Punti attuali</span><b id="p-points">—</b></div>
+          <div class="kv" style="margin-bottom:12px;"><span>Iscritto dal</span><b id="p-since">—</b></div>
+          <button class="btn btn-primary" type="submit" id="p-save">Salva modifiche</button>
+        </form>
+
+        <div class="section-label">Tessera famiglia</div>
+        <div id="family-requests"></div>
+        <div class="fam-total" id="family-total">
+          <div><div class="ft-num" id="ft-num">0</div><div class="ft-label">punti totali famiglia</div></div>
+          <div class="ft-label" id="ft-count">—</div>
+        </div>
+        <div id="family-list"></div>
+
+        <div class="section-label">Aggiungi un familiare</div>
+        <div class="panel">
+          <div class="seg-row">
+            <button type="button" class="seg active" data-mode="new">Nuovo tesserato</button>
+            <button type="button" class="seg" data-mode="link">Collega tessera</button>
+          </div>
+          <div id="family-add-msg"></div>
+          <form id="form-add-child">
+            <div class="field"><label>Nome e cognome</label><input type="text" id="c-name" required></div>
+            <div class="field"><label>Ruolo</label>
+              <select id="c-role">
+                <option value="giocatore">Giocatore</option>
+                <option value="tifoso">Tifoso</option>
+                <option value="genitore">Genitore</option>
+              </select>
+            </div>
+            <div class="field"><label>Data di nascita</label><input type="date" id="c-birth"></div>
+            <button class="btn btn-primary" type="submit">Crea tessera familiare</button>
+            <div class="auth-switch" style="margin-top:10px;font-size:11.5px;">Per figli senza email propria: la tessera viene gestita dal tuo account.</div>
+          </form>
+          <form id="form-link-child" class="hide">
+            <div class="field"><label>Numero tessera</label><input type="text" id="c-code" placeholder="TAV-2607-0001" required></div>
+            <button class="btn btn-primary" type="submit">Invia richiesta</button>
+            <div class="auth-switch" style="margin-top:10px;font-size:11.5px;">Chi possiede la tessera riceverà una richiesta da accettare dal proprio profilo.</div>
+          </form>
+        </div>
+      </div>
+
       <!-- BAR (solo staff) -->
       <div class="view" id="view-bar">
         <div class="section-label">Pannello Bar — cerca tesserato</div>
@@ -269,9 +372,13 @@ const BAR_ADD_PRESETS = [
 ];
 
 let session = null;
-let profile = null;
+let myProfile = null;      // the signed-in user
+let profile = null;        // the card currently shown (self or a family member)
+let activeProfileId = null;
 let transactions = [];
 let balance = 0;
+let family = [];
+let familyRequests = [];
 
 function $(id){ return document.getElementById(id); }
 
@@ -307,19 +414,59 @@ async function loadEverything(){
   const uid = session.user.id;
   const { data: p, error: pErr } = await sb.from('profiles').select('*').eq('id', uid).single();
   if(pErr){ console.error(pErr); return; }
-  profile = p;
+  myProfile = p;
+  if(!activeProfileId) activeProfileId = uid;
 
-  const { data: txns } = await sb.from('point_transactions').select('*').eq('profile_id', uid).order('created_at', { ascending:false });
+  await loadActiveProfile();
+  await loadFamily();
+
+  if(myProfile.is_staff){ $('tab-bar').classList.remove('hide'); }
+}
+
+async function loadActiveProfile(){
+  const { data: p, error } = await sb.from('profiles').select('*').eq('id', activeProfileId).single();
+  if(error || !p){ activeProfileId = myProfile.id; profile = myProfile; }
+  else { profile = p; }
+
+  const { data: txns } = await sb.from('point_transactions').select('*').eq('profile_id', profile.id).order('created_at', { ascending:false });
   transactions = txns || [];
   balance = transactions.reduce((s,t)=>s+t.delta, 0);
 
+  renderViewingBanner();
   renderCard();
   renderPoints();
   renderTransactions();
+  renderProfileForm();
   await renderRewards();
   await generateQR();
+}
 
-  if(profile.is_staff){ $('tab-bar').classList.remove('hide'); }
+async function loadFamily(){
+  const { data: fam } = await sb.rpc('family_overview');
+  family = fam || [];
+  const { data: reqs } = await sb.rpc('pending_family_requests');
+  familyRequests = reqs || [];
+  renderFamily();
+}
+
+function isViewingSelf(){ return !myProfile || activeProfileId === myProfile.id; }
+
+function canManageActive(){
+  if(isViewingSelf()) return true;
+  const row = family.find(f => f.profile_id === activeProfileId);
+  return !!(row && row.can_manage);
+}
+
+async function setActiveProfile(id){
+  activeProfileId = id;
+  await loadActiveProfile();
+}
+
+function renderViewingBanner(){
+  const banner = $('viewing-banner');
+  if(isViewingSelf()){ banner.classList.add('hide'); return; }
+  $('viewing-name').textContent = profile.full_name;
+  banner.classList.remove('hide');
 }
 
 function initials(name){
@@ -370,12 +517,14 @@ async function renderRewards(){
   const el = $('rewards-list');
   const { data: rewards, error } = await sb.from('rewards').select('*').eq('active', true).order('cost_points', { ascending:true });
   if(error || !rewards || !rewards.length){ el.innerHTML = '<div class="empty">Nessun premio disponibile al momento.</div>'; return; }
+  const allowed = canManageActive();
   el.innerHTML = rewards.map(r=>{
     const canAfford = balance >= r.cost_points;
+    const label = !allowed ? 'Non gestibile' : (canAfford ? 'Riscatta' : 'Insufficienti');
     return '<div class="reward">'+
       '<div class="info"><div class="rt">'+escapeHtml(r.title)+'</div><div class="rs">'+escapeHtml(r.description||'')+'</div></div>'+
       '<div class="reward-right"><div class="cost">'+r.cost_points+' pt</div>'+
-      '<button class="btn-sm" data-reward="'+r.id+'" '+(canAfford?'':'disabled')+'>'+(canAfford?'Riscatta':'Insufficienti')+'</button></div>'+
+      '<button class="btn-sm" data-reward="'+r.id+'" '+(canAfford && allowed?'':'disabled')+'>'+label+'</button></div>'+
       '</div>';
   }).join('');
   el.querySelectorAll('button[data-reward]').forEach(btn=>{
@@ -384,7 +533,7 @@ async function renderRewards(){
 }
 
 async function redeemReward(rewardId){
-  const { error } = await sb.rpc('redeem_reward', { p_reward_id: rewardId });
+  const { error } = await sb.rpc('redeem_reward', { p_reward_id: rewardId, p_profile_id: profile.id });
   if(error){ alert('Non è stato possibile riscattare: ' + error.message); return; }
   await loadEverything();
   switchView('punti');
@@ -400,6 +549,199 @@ async function generateQR(){
 
 function escapeHtml(str){
   const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML;
+}
+
+/* ---------- PROFILO ---------- */
+function escapeAttr(str){
+  return String(str==null?'':str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setProfileMsg(msg, isError){
+  const el = $('profile-msg');
+  if(!msg){ el.innerHTML=''; return; }
+  el.innerHTML = '<div class="msg '+(isError?'msg-error':'msg-ok')+'">'+escapeHtml(msg)+'</div>';
+}
+
+function setFamilyMsg(msg, isError){
+  const el = $('family-add-msg');
+  if(!msg){ el.innerHTML=''; return; }
+  el.innerHTML = '<div class="msg '+(isError?'msg-error':'msg-ok')+'">'+escapeHtml(msg)+'</div>';
+}
+
+function renderProfileForm(){
+  const editable = canManageActive();
+  $('profile-section-label').textContent = isViewingSelf() ? 'I miei dati' : 'Dati di ' + profile.full_name;
+  $('p-name').value = profile.full_name || '';
+  $('p-role').value = profile.role || 'tifoso';
+  $('p-email').value = profile.email || '';
+  $('p-phone').value = profile.phone || '';
+  $('p-birth').value = profile.birth_date || '';
+  $('p-city').value = profile.city || '';
+  $('p-code').textContent = profile.member_code || '—';
+  $('p-points').textContent = balance + ' pt';
+  $('p-since').textContent = profile.created_at
+    ? new Date(profile.created_at).toLocaleDateString('it-IT',{day:'numeric',month:'long',year:'numeric'})
+    : '—';
+
+  ['p-name','p-role','p-phone','p-birth','p-city'].forEach(id => { $(id).disabled = !editable; });
+  // your own address is the login email and is changed from the account, not here
+  $('p-email').disabled = isViewingSelf() || !editable;
+  $('p-save').classList.toggle('hide', !editable);
+  setProfileMsg('');
+}
+
+async function saveProfile(e){
+  e.preventDefault();
+  if(!canManageActive()) return;
+  const full_name = $('p-name').value.trim();
+  if(!full_name){ setProfileMsg('Il nome non può essere vuoto.', true); return; }
+
+  const patch = {
+    full_name: full_name,
+    role: $('p-role').value,
+    phone: $('p-phone').value.trim() || null,
+    birth_date: $('p-birth').value || null,
+    city: $('p-city').value.trim() || null
+  };
+  if(!isViewingSelf()) patch.email = $('p-email').value.trim() || null;
+
+  const { error } = await sb.from('profiles').update(patch).eq('id', profile.id);
+  if(error){ setProfileMsg(error.message, true); return; }
+  await loadEverything();
+  setProfileMsg('Dati aggiornati.', false);
+}
+
+function renderFamily(){
+  const rq = $('family-requests');
+  rq.innerHTML = familyRequests.map(r =>
+    '<div class="fam"><div class="fam-info">'+
+      '<div class="fam-name">'+escapeHtml(r.parent_name)+'</div>'+
+      '<div class="fam-meta">Vuole collegare la tua tessera · '+escapeHtml(r.parent_member_code||'')+'</div>'+
+      '<div class="fam-actions">'+
+        '<button class="btn-mini primary" data-accept="'+escapeAttr(r.link_id)+'">Accetta</button>'+
+        '<button class="btn-mini" data-reject="'+escapeAttr(r.link_id)+'">Rifiuta</button>'+
+      '</div>'+
+    '</div></div>'
+  ).join('');
+
+  const list = $('family-list');
+  const accepted = family.filter(m => m.link_status === 'accepted');
+  if(!family.length){
+    list.innerHTML = '<div class="empty">Nessun familiare collegato.</div>';
+  } else {
+    list.innerHTML = family.map(renderFamilyRow).join('');
+  }
+
+  $('ft-num').textContent = accepted.reduce((s,m)=>s+(m.balance||0), 0);
+  $('ft-count').textContent = accepted.length + (accepted.length === 1 ? ' tessera' : ' tessere');
+}
+
+function renderFamilyRow(m){
+  const pending = m.link_status === 'pending';
+  const acts = [];
+  if(pending){
+    acts.push('<button class="btn-mini" data-unlink="'+escapeAttr(m.profile_id)+'">Annulla richiesta</button>');
+  } else {
+    if(m.profile_id !== activeProfileId){
+      acts.push('<button class="btn-mini primary" data-view-member="'+escapeAttr(m.profile_id)+'">Vedi tessera</button>');
+    }
+    if(!m.is_self && m.is_managed){
+      acts.push('<button class="btn-mini" data-del-member="'+escapeAttr(m.profile_id)+'">Elimina</button>');
+    } else if(!m.is_self){
+      acts.push('<button class="btn-mini" data-unlink="'+escapeAttr(m.profile_id)+'">Scollega</button>');
+    }
+  }
+
+  const av = m.avatar_url
+    ? '<img src="'+escapeAttr(m.avatar_url)+'" alt="">'
+    : escapeHtml(initials(m.full_name));
+  const tags = (m.is_self ? '<span class="tag">Tu</span>' : '')
+             + (m.is_managed ? '<span class="tag">Gestita da te</span>' : '')
+             + (pending ? '<span class="tag">In attesa</span>' : '');
+
+  return '<div class="fam">'+
+    '<div class="fam-av">'+av+'</div>'+
+    '<div class="fam-info">'+
+      '<div class="fam-name">'+escapeHtml(m.full_name)+tags+'</div>'+
+      '<div class="fam-meta">'+escapeHtml(m.member_code||'')+' · '+escapeHtml(m.role||'')+'</div>'+
+      (acts.length ? '<div class="fam-actions">'+acts.join('')+'</div>' : '')+
+    '</div>'+
+    '<div class="fam-pts">'+(pending ? '—' : (m.balance||0)+' pt')+'</div>'+
+  '</div>';
+}
+
+async function handleFamilyAction(e){
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  const d = btn.dataset;
+
+  if(d.mode){
+    document.querySelectorAll('#view-profilo .seg').forEach(s => s.classList.toggle('active', s === btn));
+    $('form-add-child').classList.toggle('hide', d.mode !== 'new');
+    $('form-link-child').classList.toggle('hide', d.mode !== 'link');
+    setFamilyMsg('');
+    return;
+  }
+
+  if(d.viewMember){
+    await setActiveProfile(d.viewMember);
+    switchView('tessera');
+    return;
+  }
+
+  if(d.delMember){
+    const m = family.find(f => f.profile_id === d.delMember);
+    if(!confirm('Eliminare definitivamente la tessera di ' + (m ? m.full_name : 'questo familiare') + '? I punti andranno persi.')) return;
+    const { error } = await sb.from('profiles').delete().eq('id', d.delMember);
+    if(error){ setFamilyMsg(error.message, true); return; }
+    if(activeProfileId === d.delMember) activeProfileId = myProfile.id;
+    await loadEverything();
+    return;
+  }
+
+  if(d.unlink){
+    if(!confirm('Scollegare questa tessera dal tuo nucleo famiglia?')) return;
+    const me = myProfile.id, other = d.unlink;
+    const { error } = await sb.from('family_links').delete()
+      .or('and(parent_id.eq.'+me+',child_id.eq.'+other+'),and(parent_id.eq.'+other+',child_id.eq.'+me+')');
+    if(error){ setFamilyMsg(error.message, true); return; }
+    if(activeProfileId === other) activeProfileId = myProfile.id;
+    await loadEverything();
+    return;
+  }
+
+  if(d.accept || d.reject){
+    const id = d.accept || d.reject;
+    const { error } = await sb.from('family_links')
+      .update({ status: d.accept ? 'accepted' : 'rejected' }).eq('id', id);
+    if(error){ setFamilyMsg(error.message, true); return; }
+    await loadEverything();
+    return;
+  }
+}
+
+async function addManagedMember(e){
+  e.preventDefault();
+  setFamilyMsg('');
+  const { error } = await sb.rpc('add_managed_member', {
+    p_full_name: $('c-name').value.trim(),
+    p_role: $('c-role').value,
+    p_birth_date: $('c-birth').value || null
+  });
+  if(error){ setFamilyMsg(error.message, true); return; }
+  $('form-add-child').reset();
+  await loadEverything();
+  setFamilyMsg('Tessera familiare creata.', false);
+}
+
+async function requestFamilyLink(e){
+  e.preventDefault();
+  setFamilyMsg('');
+  const { error } = await sb.rpc('request_family_link', { p_member_code: $('c-code').value.trim() });
+  if(error){ setFamilyMsg(error.message, true); return; }
+  $('form-link-child').reset();
+  await loadEverything();
+  setFamilyMsg('Richiesta inviata. Dovrà essere accettata dal titolare della tessera.', false);
 }
 
 /* ---------- AUTH ---------- */
@@ -474,13 +816,24 @@ function bindEvents(){
 
   $('btn-logout').addEventListener('click', async ()=>{
     await sb.auth.signOut();
-    session = null; profile = null;
+    session = null; profile = null; myProfile = null; activeProfileId = null;
+    family = []; familyRequests = [];
     showAuth();
   });
 
   document.querySelectorAll('.tab').forEach(tab=>{
     tab.addEventListener('click', ()=> switchView(tab.dataset.view));
   });
+
+  $('btn-profilo').addEventListener('click', ()=> switchView('profilo'));
+  $('viewing-back').addEventListener('click', async ()=>{
+    await setActiveProfile(myProfile.id);
+  });
+
+  $('form-profile').addEventListener('submit', saveProfile);
+  $('form-add-child').addEventListener('submit', addManagedMember);
+  $('form-link-child').addEventListener('submit', requestFamilyLink);
+  $('view-profilo').addEventListener('click', handleFamilyAction);
 
   $('bar-search-btn').addEventListener('click', barSearch);
   $('bar-search').addEventListener('keydown', (e)=>{ if(e.key==='Enter') barSearch(); });
@@ -495,6 +848,7 @@ function setAuthMsg(msg, isError){
 function switchView(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.view===name));
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='view-'+name));
+  $('btn-profilo').classList.toggle('active', name==='profilo');
 }
 
 /* ---------- BAR PANEL ---------- */
@@ -553,7 +907,7 @@ function bindBarCard(profileId){
       delta: delta,
       reason: selected.reason,
       category: selected.category,
-      created_by: profile.id
+      created_by: myProfile.id
     });
     if(error){ alert('Errore: ' + error.message); return; }
     alert('Punti aggiunti.');
