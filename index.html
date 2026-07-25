@@ -169,6 +169,15 @@
   .chant .c-line em{font-style:normal;color:var(--gold-light);}
   .chant .c-sub{position:relative;z-index:2;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;opacity:0.8;margin-top:9px;}
 
+  /* leaderboard */
+  .lb{display:flex;align-items:center;gap:11px;padding:11px 12px;border:1px solid var(--line);border-radius:14px;margin-bottom:7px;}
+  .lb.me{border-color:var(--bordeaux);background:rgba(180,31,50,0.05);}
+  .lb .lb-pos{flex:0 0 auto;width:26px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;line-height:1;color:var(--ink-soft);}
+  .lb.top1 .lb-pos{color:#C9A961;} .lb.top2 .lb-pos{color:#9AA0A6;} .lb.top3 .lb-pos{color:#B87333;}
+  .lb .lb-name{flex:1;min-width:0;font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lb .lb-pts{flex:0 0 auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:var(--bordeaux);}
+  .lb-gap{text-align:center;color:var(--ink-soft);font-size:14px;letter-spacing:0.2em;margin:2px 0 7px;}
+
   /* qr scanner */
   .scan-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;margin-bottom:12px;border-radius:12px;border:1.4px solid var(--bordeaux);background:var(--white);color:var(--bordeaux);font-family:'Manrope',sans-serif;font-weight:700;font-size:13.5px;cursor:pointer;}
   .scan-btn svg{width:18px;height:18px;}
@@ -353,6 +362,13 @@
         <div class="points-box" style="margin-top:0;">
           <div class="points-row"><div class="points-num" id="points-total-2">0<small>punti attivi</small></div></div>
         </div>
+        <div class="section-label">Classifica tifosi</div>
+        <div class="seg-row" id="lb-tabs">
+          <button type="button" class="seg" data-period="mese">Questo mese</button>
+          <button type="button" class="seg active" data-period="stagione">Stagione</button>
+        </div>
+        <div id="lb-list"><div class="empty">Caricamento classifica…</div></div>
+
         <div class="section-label">Storico movimenti</div>
         <div id="txn-list"><div class="empty">Nessun movimento ancora.</div></div>
       </div>
@@ -382,6 +398,7 @@
           <div class="field"><label>Telefono</label><input type="tel" id="p-phone" placeholder="—"></div>
           <div class="field"><label>Data di nascita</label><input type="date" id="p-birth"></div>
           <div class="field" style="margin-bottom:4px;"><label>Città</label><input type="text" id="p-city" placeholder="—"></div>
+          <div class="kv"><span>Compari in classifica</span><input type="checkbox" id="p-lb" style="width:18px;height:18px;accent-color:#B41F32;"></div>
           <div class="kv"><span>N. tessera</span><b id="p-code">—</b></div>
           <div class="kv"><span>Punti attuali</span><b id="p-points">—</b></div>
           <div class="kv" style="margin-bottom:12px;"><span>Iscritto dal</span><b id="p-since">—</b></div>
@@ -556,6 +573,7 @@ async function loadEverything(){
   await loadActiveProfile();
   await loadFamily();
   await loadNotices();
+  await loadLeaderboard();
 
   if(myProfile.is_staff){
     $('tab-bar').classList.remove('hide');
@@ -590,6 +608,7 @@ async function refreshData(){
     await loadActiveProfile();
     await loadFamily();
     await loadNotices();
+    await loadLeaderboard();
   } finally {
     refreshing = false;
   }
@@ -703,6 +722,34 @@ async function generateQR(){
 
 function escapeHtml(str){
   const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML;
+}
+
+/* ---------- CLASSIFICA ---------- */
+let lbPeriod = 'stagione';
+
+async function loadLeaderboard(){
+  const el = $('lb-list');
+  const { data, error } = await sb.rpc('leaderboard', { p_period: lbPeriod });
+  if(error){ el.innerHTML = '<div class="empty">Classifica non disponibile al momento.</div>'; return; }
+
+  const rows = data || [];
+  if(!rows.length){
+    el.innerHTML = '<div class="empty">Ancora nessun punto in classifica.</div>';
+    return;
+  }
+
+  let prev = 0;
+  el.innerHTML = rows.map(r => {
+    // the caller is always included, even when they sit outside the top 20
+    const gap = (r.posizione > prev + 1 && prev !== 0) ? '<div class="lb-gap">···</div>' : '';
+    prev = r.posizione;
+    const cls = 'lb' + (r.is_self ? ' me' : '') + (r.posizione <= 3 ? ' top' + r.posizione : '');
+    return gap + '<div class="'+cls+'">'+
+      '<div class="lb-pos">'+r.posizione+'</div>'+
+      '<div class="lb-name">'+escapeHtml(r.nome)+(r.is_self ? '<span class="tag">Tu</span>' : '')+'</div>'+
+      '<div class="lb-pts">'+r.punti+' pt</div>'+
+    '</div>';
+  }).join('');
 }
 
 /* ---------- AVVISI ---------- */
@@ -867,6 +914,8 @@ function renderProfileForm(){
   $('p-phone').value = profile.phone || '';
   $('p-birth').value = profile.birth_date || '';
   $('p-city').value = profile.city || '';
+  $('p-lb').checked = !profile.leaderboard_opt_out;
+  $('p-lb').disabled = !editable;
   $('p-code').textContent = profile.member_code || '—';
   $('p-points').textContent = balance + ' pt';
   $('p-since').textContent = profile.created_at
@@ -891,7 +940,8 @@ async function saveProfile(e){
     role: $('p-role').value,
     phone: $('p-phone').value.trim() || null,
     birth_date: $('p-birth').value || null,
-    city: $('p-city').value.trim() || null
+    city: $('p-city').value.trim() || null,
+    leaderboard_opt_out: !$('p-lb').checked
   };
   if(!isViewingSelf()) patch.email = $('p-email').value.trim() || null;
 
@@ -1137,6 +1187,14 @@ function bindEvents(){
   $('form-add-child').addEventListener('submit', addManagedMember);
   $('form-link-child').addEventListener('submit', requestFamilyLink);
   $('view-profilo').addEventListener('click', handleFamilyAction);
+
+  $('lb-tabs').addEventListener('click', async (e)=>{
+    const btn = e.target.closest('button[data-period]');
+    if(!btn) return;
+    lbPeriod = btn.dataset.period;
+    document.querySelectorAll('#lb-tabs .seg').forEach(s => s.classList.toggle('active', s === btn));
+    await loadLeaderboard();
+  });
 
   $('form-notice').addEventListener('submit', createNotice);
   $('view-avvisi').addEventListener('click', handleNoticeAction);
