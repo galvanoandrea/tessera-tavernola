@@ -22,7 +22,7 @@
 
   /* topbar */
   .appbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid var(--line);}
-  .brand{display:flex;align-items:center;gap:9px;}
+  .brand{display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none;}
   .crest-frame{width:38px;height:47px;flex:0 0 auto;}
   .brand img{width:100%;height:100%;object-fit:contain;display:block;}
   .brand-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;text-transform:uppercase;}
@@ -208,7 +208,7 @@
   <!-- APP -->
   <div id="view-app" class="hide" style="display:flex;flex-direction:column;min-height:100vh;">
     <div class="appbar">
-      <div class="brand">
+      <div class="brand" id="btn-home" title="Torna alla tessera">
         <div class="crest-frame"><img id="crest-img" src="crest.png" alt="Stemma"></div>
         <div class="brand-name">Tavernola</div>
       </div>
@@ -825,6 +825,7 @@ function bindEvents(){
     tab.addEventListener('click', ()=> switchView(tab.dataset.view));
   });
 
+  $('btn-home').addEventListener('click', ()=> switchView('tessera'));
   $('btn-profilo').addEventListener('click', ()=> switchView('profilo'));
   $('viewing-back').addEventListener('click', async ()=>{
     await setActiveProfile(myProfile.id);
