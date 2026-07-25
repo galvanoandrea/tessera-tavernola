@@ -375,7 +375,7 @@
 
       <!-- BAR (solo staff) -->
       <div class="view" id="view-bar">
-        <div class="section-label">Pannello Bar — cerca tesserato</div>
+        <div class="section-label">Assegna punti — cerca tesserato</div>
         <div class="search-row">
           <input type="text" id="bar-search" placeholder="Nome o codice tessera (TAV-...)">
           <button class="btn-sm" id="bar-search-btn">Cerca</button>
@@ -387,10 +387,10 @@
 
     <div class="tabbar" id="tabbar">
       <button class="tab active" data-view="tessera"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="2.4" stroke="currentColor" stroke-width="1.6"/><path d="M6.5 15h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Tessera</span></button>
-      <button class="tab" data-view="punti"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 4.6 5 .7-3.6 3.5.85 5-4.45-2.4-4.45 2.4.85-5L4.8 8.3l5-.7L12 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span>Punti</span></button>
+      <button class="tab" data-view="punti"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 4.6 5 .7-3.6 3.5.85 5-4.45-2.4-4.45 2.4.85-5L4.8 8.3l5-.7L12 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span>Portafoglio</span></button>
       <button class="tab" data-view="premi"><svg viewBox="0 0 24 24" fill="none"><path d="M20 7H4l1.2 11.2a2 2 0 002 1.8h9.6a2 2 0 002-1.8L20 7z" stroke="currentColor" stroke-width="1.6"/><path d="M8 7a4 4 0 018 0" stroke="currentColor" stroke-width="1.6"/></svg><span>Premi</span></button>
       <button class="tab hide" id="tab-avvisi" data-view="avvisi"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10v4h3l6 4V6l-6 4H4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M17.5 9.2a4 4 0 010 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Avvisi</span></button>
-      <button class="tab hide" id="tab-bar" data-view="bar"><svg viewBox="0 0 24 24" fill="none"><path d="M5 9h14l-1 9a2 2 0 01-2 2H8a2 2 0 01-2-2L5 9z" stroke="currentColor" stroke-width="1.6"/><path d="M9 9V6a3 3 0 016 0v3" stroke="currentColor" stroke-width="1.6"/></svg><span>Bar</span></button>
+      <button class="tab hide" id="tab-bar" data-view="bar"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 8.4v7.2M8.4 12h7.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Punti</span></button>
     </div>
   </div>
 
@@ -487,6 +487,20 @@ async function loadActiveProfile(){
   renderProfileForm();
   await renderRewards();
   await generateQR();
+}
+
+// Re-read the balances without rebuilding the whole session state.
+let refreshing = false;
+async function refreshData(){
+  if(refreshing || !myProfile) return;
+  refreshing = true;
+  try {
+    await loadActiveProfile();
+    await loadFamily();
+    await loadNotices();
+  } finally {
+    refreshing = false;
+  }
 }
 
 async function loadFamily(){
@@ -987,7 +1001,16 @@ function bindEvents(){
   });
 
   document.querySelectorAll('.tab').forEach(tab=>{
-    tab.addEventListener('click', ()=> switchView(tab.dataset.view));
+    tab.addEventListener('click', async ()=>{
+      switchView(tab.dataset.view);
+      // points may have been added from the bar in the meantime
+      if(tab.dataset.view === 'tessera' || tab.dataset.view === 'punti') await refreshData();
+    });
+  });
+
+  // and pick up changes made while the app sat in the background
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible' && session) refreshData();
   });
 
   $('btn-home').addEventListener('click', ()=> switchView('tessera'));
@@ -1029,20 +1052,35 @@ async function barSearch(){
   if(error){ el.innerHTML = '<div class="empty">Errore nella ricerca.</div>'; return; }
   if(!data || !data.length){ el.innerHTML = '<div class="empty">Nessun tesserato trovato.</div>'; return; }
 
-  const balances = {};
+  const history = {};
   for(const p of data){
-    const { data: txns } = await sb.from('point_transactions').select('delta').eq('profile_id', p.id);
-    balances[p.id] = (txns||[]).reduce((s,t)=>s+t.delta,0);
+    const { data: txns } = await sb.from('point_transactions')
+      .select('id,delta,reason,created_at').eq('profile_id', p.id)
+      .order('created_at', { ascending:false });
+    history[p.id] = txns || [];
   }
 
-  el.innerHTML = data.map(p => renderBarCard(p, balances[p.id])).join('');
+  el.innerHTML = data.map(p => renderBarCard(p, history[p.id])).join('');
   data.forEach(p => bindBarCard(p.id));
 }
 
-function renderBarCard(p, bal){
+function renderBarCard(p, txns){
+  const bal = txns.reduce((s,t)=>s+t.delta, 0);
+  const recent = txns.slice(0, 5).map(t => {
+    const d = new Date(t.created_at).toLocaleDateString('it-IT',{day:'numeric',month:'short'});
+    const sign = t.delta >= 0 ? 'pos' : 'neg';
+    return '<div class="txn">'+
+      '<div><div class="tl">'+escapeHtml(t.reason)+'</div><div class="td">'+d+'</div></div>'+
+      '<div style="display:flex;align-items:center;gap:8px;">'+
+        '<span class="tv '+sign+'">'+(t.delta>=0?'+':'')+t.delta+'</span>'+
+        '<button class="btn-mini" data-del-txn="'+escapeAttr(t.id)+'" title="Annulla movimento">Annulla</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+
   return '<div class="result-card" id="rc-'+p.id+'">'+
     '<div class="rname">'+escapeHtml(p.full_name)+'</div>'+
-    '<div class="rmeta">'+p.member_code+' · '+p.role+'</div>'+
+    '<div class="rmeta">'+escapeHtml(p.member_code||'')+' · '+escapeHtml(p.role||'')+'</div>'+
     '<div class="rbal">'+bal+' pt</div>'+
     '<div class="chip-row" data-chips="'+p.id+'">'+
       BAR_ADD_PRESETS.map(pr => '<div class="chip" data-key="'+pr.key+'">'+pr.label+'</div>').join('')+
@@ -1051,6 +1089,7 @@ function renderBarCard(p, bal){
       '<input type="number" placeholder="punti / € " id="amt-'+p.id+'">'+
       '<button class="btn-sm" id="add-'+p.id+'">Aggiungi</button>'+
     '</div>'+
+    (recent ? '<div class="section-label" style="margin:14px 0 0;">Ultimi movimenti</div>'+recent : '')+
   '</div>';
 }
 
@@ -1070,7 +1109,7 @@ function bindBarCard(profileId){
   $('add-'+profileId).addEventListener('click', async ()=>{
     const raw = parseFloat($('amt-'+profileId).value);
     if(isNaN(raw) || raw <= 0){ alert('Inserisci un valore valido.'); return; }
-    const delta = selected.category === 'bar' ? Math.round(raw) : Math.round(raw);
+    const delta = Math.round(raw);
     const { error } = await sb.from('point_transactions').insert({
       profile_id: profileId,
       delta: delta,
@@ -1079,9 +1118,24 @@ function bindBarCard(profileId){
       created_by: myProfile.id
     });
     if(error){ alert('Errore: ' + error.message); return; }
-    alert('Punti aggiunti.');
-    barSearch();
+    await refreshAfterPointsChange();
   });
+
+  card.querySelectorAll('button[data-del-txn]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(!confirm('Annullare questo movimento? I punti verranno ricalcolati.')) return;
+      const { error } = await sb.from('point_transactions').delete().eq('id', btn.dataset.delTxn);
+      if(error){ alert('Errore: ' + error.message); return; }
+      await refreshAfterPointsChange();
+    });
+  });
+}
+
+// A movement can land on any card, including one shown elsewhere in the app,
+// so reload the member's own views as well as the staff panel.
+async function refreshAfterPointsChange(){
+  await loadEverything();
+  await barSearch();
 }
 
 init();
