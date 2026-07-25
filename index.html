@@ -169,6 +169,12 @@
   .chant .c-line em{font-style:normal;color:var(--gold-light);}
   .chant .c-sub{position:relative;z-index:2;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;opacity:0.8;margin-top:9px;}
 
+  /* birthday */
+  .bday{display:flex;align-items:center;gap:12px;margin-top:18px;border-radius:16px;padding:14px 16px;color:var(--white);background:linear-gradient(120deg,var(--bordeaux) 0%,var(--bordeaux-dark) 70%);box-shadow:0 12px 22px -14px rgba(74,12,22,0.6);}
+  .bday .b-ico{font-size:24px;line-height:1;flex:0 0 auto;}
+  .bday .b-t{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;line-height:1.05;text-transform:uppercase;}
+  .bday .b-d{font-size:11.5px;opacity:0.9;margin-top:3px;line-height:1.35;}
+
   /* leaderboard */
   .lb{display:flex;align-items:center;gap:11px;padding:11px 12px;border:1px solid var(--line);border-radius:14px;margin-bottom:7px;}
   .lb.me{border-color:var(--bordeaux);background:rgba(180,31,50,0.05);}
@@ -347,6 +353,7 @@
           </div>
         </div>
 
+        <div id="bday-box"></div>
         <div id="notice-list"></div>
 
         <div class="points-box">
@@ -463,6 +470,16 @@
           </form>
         </div>
 
+        <div class="section-label">Impostazioni club</div>
+        <div class="panel">
+          <div id="settings-msg"></div>
+          <form id="form-settings">
+            <div class="field" style="margin-bottom:12px;"><label>Punti bonus compleanno</label><input type="number" id="s-bday" min="0" step="1" value="20"></div>
+            <div class="auth-switch" style="margin:0 0 12px;text-align:left;font-size:11.5px;">Assegnati in automatico ogni mattina ai tesserati che compiono gli anni. Metti 0 per disattivarli.</div>
+            <button class="btn btn-primary" type="submit">Salva impostazioni</button>
+          </form>
+        </div>
+
         <div class="section-label">Avvisi pubblicati</div>
         <div id="notice-admin-list"></div>
       </div>
@@ -574,6 +591,8 @@ async function loadEverything(){
   await loadFamily();
   await loadNotices();
   await loadLeaderboard();
+  await loadSettings();
+  renderBirthday();
 
   if(myProfile.is_staff){
     $('tab-bar').classList.remove('hide');
@@ -595,6 +614,7 @@ async function loadActiveProfile(){
   renderPoints();
   renderTransactions();
   renderProfileForm();
+  renderBirthday();
   await renderRewards();
   await generateQR();
 }
@@ -722,6 +742,54 @@ async function generateQR(){
 
 function escapeHtml(str){
   const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML;
+}
+
+/* ---------- COMPLEANNO ---------- */
+let clubSettings = { birthday_points: 20 };
+
+async function loadSettings(){
+  const { data } = await sb.from('club_settings').select('*').limit(1).single();
+  if(data) clubSettings = data;
+  if($('s-bday')) $('s-bday').value = clubSettings.birthday_points;
+}
+
+function isBirthdayToday(dateStr){
+  if(!dateStr) return false;
+  const b = new Date(dateStr + 'T00:00:00');
+  const now = new Date();
+  if(b.getDate() === now.getDate() && b.getMonth() === now.getMonth()) return true;
+  // 29 February is celebrated on the 28th when the year is not a leap one
+  const leap = new Date(now.getFullYear(), 1, 29).getMonth() === 1;
+  return !leap && b.getMonth() === 1 && b.getDate() === 29
+      && now.getMonth() === 1 && now.getDate() === 28;
+}
+
+function renderBirthday(){
+  const el = $('bday-box');
+  if(!el) return;
+  if(!profile || !isBirthdayToday(profile.birth_date)){ el.innerHTML = ''; return; }
+  const who = isViewingSelf() ? 'Buon compleanno!' : 'Buon compleanno a ' + escapeHtml(profile.full_name) + '!';
+  const pts = clubSettings.birthday_points > 0
+    ? 'Il club ti regala ' + clubSettings.birthday_points + ' punti sulla tessera.'
+    : 'Tutto il club ti fa gli auguri.';
+  el.innerHTML = '<div class="bday"><div class="b-ico">🎂</div>'+
+    '<div><div class="b-t">'+who+'</div><div class="b-d">'+pts+'</div></div></div>';
+}
+
+async function saveSettings(e){
+  e.preventDefault();
+  const el = $('settings-msg');
+  const points = parseInt($('s-bday').value, 10);
+  if(isNaN(points) || points < 0){
+    el.innerHTML = '<div class="msg msg-error">Inserisci un numero valido.</div>';
+    return;
+  }
+  const { error } = await sb.from('club_settings')
+    .update({ birthday_points: points, updated_at: new Date().toISOString() }).eq('id', true);
+  if(error){ el.innerHTML = '<div class="msg msg-error">'+escapeHtml(error.message)+'</div>'; return; }
+  await loadSettings();
+  renderBirthday();
+  el.innerHTML = '<div class="msg msg-ok">Impostazioni salvate.</div>';
 }
 
 /* ---------- CLASSIFICA ---------- */
@@ -1196,6 +1264,7 @@ function bindEvents(){
     await loadLeaderboard();
   });
 
+  $('form-settings').addEventListener('submit', saveSettings);
   $('form-notice').addEventListener('submit', createNotice);
   $('view-avvisi').addEventListener('click', handleNoticeAction);
 
