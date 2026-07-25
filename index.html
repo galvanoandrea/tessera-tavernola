@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="supabase.js"></script>
 <script src="qrcode.min.js"></script>
+<script src="jsqr.min.js"></script>
 <style>
   :root{
     --bordeaux:#B41F32; --bordeaux-dark:#6E1220; --bordeaux-deep:#4A0C16;
@@ -167,6 +168,15 @@
   .chant .c-line{position:relative;z-index:2;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:34px;line-height:1.02;text-transform:uppercase;letter-spacing:0.01em;}
   .chant .c-line em{font-style:normal;color:var(--gold-light);}
   .chant .c-sub{position:relative;z-index:2;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;opacity:0.8;margin-top:9px;}
+
+  /* qr scanner */
+  .scan-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;margin-bottom:12px;border-radius:12px;border:1.4px solid var(--bordeaux);background:var(--white);color:var(--bordeaux);font-family:'Manrope',sans-serif;font-weight:700;font-size:13.5px;cursor:pointer;}
+  .scan-btn svg{width:18px;height:18px;}
+  .scanner{position:fixed;inset:0;z-index:50;background:var(--black);display:flex;flex-direction:column;}
+  .scanner video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--black);}
+  .scan-frame{position:absolute;top:50%;left:50%;transform:translate(-50%,-58%);width:64%;aspect-ratio:1;border-radius:18px;box-shadow:0 0 0 100vmax rgba(20,16,15,0.55);border:2px solid rgba(255,255,255,0.9);}
+  .scan-hint{position:absolute;left:0;right:0;bottom:104px;text-align:center;color:var(--white);font-size:12.5px;padding:0 30px;line-height:1.45;text-shadow:0 1px 3px rgba(0,0,0,0.6);}
+  .scan-close{position:absolute;left:50%;transform:translateX(-50%);bottom:34px;background:var(--white);color:var(--black);border:none;border-radius:24px;padding:12px 26px;font-family:'Manrope',sans-serif;font-weight:700;font-size:13.5px;cursor:pointer;}
 
   /* bar panel */
   .search-row{display:flex;gap:8px;margin-bottom:14px;}
@@ -436,6 +446,11 @@
       <!-- BAR (solo staff) -->
       <div class="view" id="view-bar">
         <div class="section-label">Assegna punti — cerca tesserato</div>
+        <button class="scan-btn" id="btn-scan">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 9V5.5A1.5 1.5 0 015.5 4H9M15 4h3.5A1.5 1.5 0 0120 5.5V9M20 15v3.5a1.5 1.5 0 01-1.5 1.5H15M9 20H5.5A1.5 1.5 0 014 18.5V15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 12h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Scansiona QR tessera
+        </button>
+        <div id="scan-msg"></div>
         <div class="search-row">
           <input type="text" id="bar-search" placeholder="Nome o codice tessera (TAV-...)">
           <button class="btn-sm" id="bar-search-btn">Cerca</button>
@@ -452,6 +467,14 @@
       <button class="tab hide" id="tab-avvisi" data-view="avvisi"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10v4h3l6 4V6l-6 4H4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M17.5 9.2a4 4 0 010 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Avvisi</span></button>
       <button class="tab hide" id="tab-bar" data-view="bar"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 8.4v7.2M8.4 12h7.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Punti</span></button>
     </div>
+  </div>
+
+  <!-- QR SCANNER (staff) -->
+  <div class="scanner hide" id="scanner">
+    <video id="scan-video" playsinline muted></video>
+    <div class="scan-frame"></div>
+    <div class="scan-hint" id="scan-hint">Inquadra il QR della tessera</div>
+    <button class="scan-close" id="scan-close" type="button">Chiudi</button>
   </div>
 
 </div>
@@ -1054,6 +1077,7 @@ function bindEvents(){
   });
 
   $('btn-logout').addEventListener('click', async ()=>{
+    if(scanStream) closeScanner();
     await sb.auth.signOut();
     session = null; profile = null; myProfile = null; activeProfileId = null;
     family = []; familyRequests = []; notices = [];
@@ -1071,6 +1095,8 @@ function bindEvents(){
   // and pick up changes made while the app sat in the background
   document.addEventListener('visibilitychange', ()=>{
     if(document.visibilityState === 'visible' && session) refreshData();
+    // never leave the camera running once the app is out of sight
+    if(document.visibilityState === 'hidden' && scanStream) closeScanner();
   });
 
   $('btn-home').addEventListener('click', ()=> switchView('tessera'));
@@ -1087,6 +1113,9 @@ function bindEvents(){
   $('form-notice').addEventListener('submit', createNotice);
   $('view-avvisi').addEventListener('click', handleNoticeAction);
 
+  $('btn-scan').addEventListener('click', openScanner);
+  $('scan-close').addEventListener('click', closeScanner);
+
   $('bar-search-btn').addEventListener('click', barSearch);
   $('bar-search').addEventListener('keydown', (e)=>{ if(e.key==='Enter') barSearch(); });
 }
@@ -1101,6 +1130,88 @@ function switchView(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.view===name));
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='view-'+name));
   $('btn-profilo').classList.toggle('active', name==='profilo');
+}
+
+/* ---------- QR SCANNER ---------- */
+let scanStream = null;
+let scanFrameReq = null;
+const scanCanvas = document.createElement('canvas');
+
+function setScanMsg(msg, isError){
+  const el = $('scan-msg');
+  if(!msg){ el.innerHTML=''; return; }
+  el.innerHTML = '<div class="msg '+(isError?'msg-error':'msg-ok')+'">'+escapeHtml(msg)+'</div>';
+}
+
+async function openScanner(){
+  setScanMsg('');
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    setScanMsg('Questo browser non consente l’accesso alla fotocamera: cerca il tesserato per nome.', true);
+    return;
+  }
+  try {
+    // the rear camera is the one pointing at the member's phone
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } }, audio: false
+    });
+  } catch(err){
+    const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+    setScanMsg(denied
+      ? 'Permesso fotocamera negato. Autorizzalo dalle impostazioni del browser, oppure cerca per nome.'
+      : 'Fotocamera non disponibile: cerca il tesserato per nome.', true);
+    return;
+  }
+
+  const video = $('scan-video');
+  video.srcObject = scanStream;
+  video.setAttribute('playsinline', '');
+  $('scan-hint').textContent = 'Inquadra il QR della tessera';
+  $('scanner').classList.remove('hide');
+  try { await video.play(); } catch(e){ /* autoplay guard, the loop still reads frames */ }
+  scanFrameReq = requestAnimationFrame(scanTick);
+}
+
+function closeScanner(){
+  if(scanFrameReq){ cancelAnimationFrame(scanFrameReq); scanFrameReq = null; }
+  if(scanStream){ scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  const video = $('scan-video');
+  video.pause();
+  video.srcObject = null;
+  $('scanner').classList.add('hide');
+}
+
+function scanTick(){
+  const video = $('scan-video');
+  if(video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth){
+    // decoding a downscaled frame is plenty for a QR and keeps older phones smooth
+    const w = 480;
+    const h = Math.round(video.videoHeight * (w / video.videoWidth));
+    scanCanvas.width = w; scanCanvas.height = h;
+    const ctx = scanCanvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(video, 0, 0, w, h);
+    const img = ctx.getImageData(0, 0, w, h);
+    const found = window.jsQR ? window.jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' }) : null;
+    if(found && found.data){
+      onScanResult(found.data);
+      return;
+    }
+  }
+  scanFrameReq = requestAnimationFrame(scanTick);
+}
+
+async function onScanResult(text){
+  const code = String(text || '').trim();
+  closeScanner();
+  if(!code){ return; }
+  if(navigator.vibrate) navigator.vibrate(60);
+  $('bar-search').value = code;
+  await barSearch();
+  if(!$('bar-results').querySelector('.result-card')){
+    setScanMsg('Nessuna tessera trovata per il codice ' + code + '.', true);
+  } else {
+    setScanMsg('');
+    $('bar-results').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
 }
 
 /* ---------- BAR PANEL ---------- */
