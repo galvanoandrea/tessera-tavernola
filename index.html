@@ -176,6 +176,12 @@
   .scanner video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--black);}
   .scan-frame{position:absolute;top:50%;left:50%;transform:translate(-50%,-58%);width:64%;aspect-ratio:1;border-radius:18px;box-shadow:0 0 0 100vmax rgba(20,16,15,0.55);border:2px solid rgba(255,255,255,0.9);}
   .scan-hint{position:absolute;left:0;right:0;bottom:104px;text-align:center;color:var(--white);font-size:12.5px;padding:0 30px;line-height:1.45;text-shadow:0 1px 3px rgba(0,0,0,0.6);}
+  .scan-hint.ok,.scan-hint.warn,.scan-hint.err{display:inline-block;left:50%;right:auto;transform:translateX(-50%);max-width:86%;border-radius:12px;padding:10px 14px;font-weight:700;text-shadow:none;}
+  .scan-hint.ok{background:rgba(63,122,75,0.95);}
+  .scan-hint.warn{background:rgba(201,169,97,0.95);color:var(--black);}
+  .scan-hint.err{background:rgba(180,31,50,0.95);}
+  .scan-title{position:absolute;top:22px;left:0;right:0;text-align:center;color:var(--white);font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px;text-transform:uppercase;padding:0 24px;text-shadow:0 1px 3px rgba(0,0,0,0.6);}
+  .scan-title small{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.12em;font-weight:500;opacity:0.85;margin-top:4px;text-transform:uppercase;}
   .scan-close{position:absolute;left:50%;transform:translateX(-50%);bottom:34px;background:var(--white);color:var(--black);border:none;border-radius:24px;padding:12px 26px;font-family:'Manrope',sans-serif;font-weight:700;font-size:13.5px;cursor:pointer;}
 
   /* bar panel */
@@ -435,6 +441,7 @@
             <div class="field"><label>Data e ora</label><input type="datetime-local" id="n-when"></div>
             <div class="field"><label>Luogo</label><input type="text" id="n-place" placeholder="Campo Comunale"></div>
             <div class="field"><label>Dettagli</label><input type="text" id="n-body" placeholder="Vi aspettiamo numerosi"></div>
+            <div class="field"><label>Punti presenza (check-in)</label><input type="number" id="n-points" value="10" min="0" step="1"></div>
             <button class="btn btn-primary" type="submit">Pubblica avviso</button>
           </form>
         </div>
@@ -473,6 +480,7 @@
   <div class="scanner hide" id="scanner">
     <video id="scan-video" playsinline muted></video>
     <div class="scan-frame"></div>
+    <div class="scan-title hide" id="scan-title"></div>
     <div class="scan-hint" id="scan-hint">Inquadra il QR della tessera</div>
     <button class="scan-close" id="scan-close" type="button">Chiudi</button>
   </div>
@@ -506,6 +514,7 @@ let balance = 0;
 let family = [];
 let familyRequests = [];
 let notices = [];
+let attendance = {};
 
 function $(id){ return document.getElementById(id); }
 
@@ -703,6 +712,13 @@ async function loadNotices(){
   const { data } = await sb.from('announcements').select('*')
     .order('event_at', { ascending:true, nullsFirst:false });
   notices = data || [];
+
+  attendance = {};
+  if(myProfile && myProfile.is_staff){
+    const { data: att } = await sb.rpc('event_attendance');
+    (att || []).forEach(a => { attendance[a.announcement_id] = a.presenze; });
+  }
+
   renderNotices();
   renderNoticesAdmin();
 }
@@ -758,12 +774,17 @@ function renderNoticesAdmin(){
   if(!el) return;
   if(!notices.length){ el.innerHTML = '<div class="empty">Nessun avviso pubblicato.</div>'; return; }
   el.innerHTML = notices.map(n => {
+    const presenze = attendance[n.id] || 0;
     const actions = '<div class="fam-actions">'+
+      '<button class="btn-mini primary" data-checkin-notice="'+escapeAttr(n.id)+'">Check-in presenze</button>'+
       '<button class="btn-mini'+(n.active?'':' primary')+'" data-toggle-notice="'+escapeAttr(n.id)+'">'+
         (n.active ? 'Nascondi' : 'Ripubblica')+'</button>'+
       '<button class="btn-mini" data-del-notice="'+escapeAttr(n.id)+'">Elimina</button>'+
     '</div>';
-    return noticeCard(n, (n.active && noticeIsCurrent(n)) ? '' : 'past', actions);
+    const counter = '<div class="n-meta">'+presenze+
+      (presenze === 1 ? ' presenza registrata' : ' presenze registrate')+
+      ' · '+n.checkin_points+' pt a testa</div>';
+    return noticeCard(n, (n.active && noticeIsCurrent(n)) ? '' : 'past', counter + actions);
   }).join('');
 }
 
@@ -783,6 +804,7 @@ async function createNotice(e){
     event_at: when ? new Date(when).toISOString() : null,
     location: $('n-place').value.trim() || null,
     body: $('n-body').value.trim() || null,
+    checkin_points: parseInt($('n-points').value, 10) || 0,
     created_by: myProfile.id
   });
   if(error){ setNoticeMsg(error.message, true); return; }
@@ -795,6 +817,12 @@ async function handleNoticeAction(e){
   const btn = e.target.closest('button');
   if(!btn) return;
   const d = btn.dataset;
+
+  if(d.checkinNotice){
+    const n = notices.find(x => x.id === d.checkinNotice);
+    if(n) await openScanner('checkin', n);
+    return;
+  }
 
   if(d.toggleNotice){
     const n = notices.find(x => x.id === d.toggleNotice);
@@ -1113,7 +1141,7 @@ function bindEvents(){
   $('form-notice').addEventListener('submit', createNotice);
   $('view-avvisi').addEventListener('click', handleNoticeAction);
 
-  $('btn-scan').addEventListener('click', openScanner);
+  $('btn-scan').addEventListener('click', ()=> openScanner('search'));
   $('scan-close').addEventListener('click', closeScanner);
 
   $('bar-search-btn').addEventListener('click', barSearch);
@@ -1135,6 +1163,12 @@ function switchView(name){
 /* ---------- QR SCANNER ---------- */
 let scanStream = null;
 let scanFrameReq = null;
+let scanMode = 'search';     // 'search' = find a member, 'checkin' = gate mode
+let scanEvent = null;
+let scanPaused = false;
+let scanDone = 0;
+let lastScanCode = '';
+let lastScanAt = 0;
 const scanCanvas = document.createElement('canvas');
 
 function setScanMsg(msg, isError){
@@ -1143,10 +1177,17 @@ function setScanMsg(msg, isError){
   el.innerHTML = '<div class="msg '+(isError?'msg-error':'msg-ok')+'">'+escapeHtml(msg)+'</div>';
 }
 
-async function openScanner(){
+async function openScanner(mode, ev){
   setScanMsg('');
+  scanMode = mode === 'checkin' ? 'checkin' : 'search';
+  scanEvent = scanMode === 'checkin' ? ev : null;
+  scanPaused = false; scanDone = 0; lastScanCode = ''; lastScanAt = 0;
+
+  // the message belongs to whichever panel the scan was started from
+  const fail = (msg) => (scanMode === 'checkin' ? setNoticeMsg(msg, true) : setScanMsg(msg, true));
+
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    setScanMsg('Questo browser non consente l’accesso alla fotocamera: cerca il tesserato per nome.', true);
+    fail('Questo browser non consente l’accesso alla fotocamera.');
     return;
   }
   try {
@@ -1156,19 +1197,34 @@ async function openScanner(){
     });
   } catch(err){
     const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
-    setScanMsg(denied
-      ? 'Permesso fotocamera negato. Autorizzalo dalle impostazioni del browser, oppure cerca per nome.'
-      : 'Fotocamera non disponibile: cerca il tesserato per nome.', true);
+    fail(denied
+      ? 'Permesso fotocamera negato: autorizzalo dalle impostazioni del browser.'
+      : 'Fotocamera non disponibile su questo dispositivo.');
     return;
   }
 
   const video = $('scan-video');
   video.srcObject = scanStream;
   video.setAttribute('playsinline', '');
-  $('scan-hint').textContent = 'Inquadra il QR della tessera';
+
+  const title = $('scan-title');
+  if(scanMode === 'checkin'){
+    title.innerHTML = escapeHtml(scanEvent.title) +
+      '<small>Check-in presenze · <span id="scan-counter">0</span> registrati</small>';
+    title.classList.remove('hide');
+  } else {
+    title.classList.add('hide');
+  }
+  setScanHint('Inquadra il QR della tessera', '');
   $('scanner').classList.remove('hide');
   try { await video.play(); } catch(e){ /* autoplay guard, the loop still reads frames */ }
   scanFrameReq = requestAnimationFrame(scanTick);
+}
+
+function setScanHint(text, kind){
+  const el = $('scan-hint');
+  el.className = 'scan-hint' + (kind ? ' ' + kind : '');
+  el.textContent = text;
 }
 
 function closeScanner(){
@@ -1178,11 +1234,19 @@ function closeScanner(){
   video.pause();
   video.srcObject = null;
   $('scanner').classList.add('hide');
+
+  if(scanMode === 'checkin'){
+    const done = scanDone;
+    scanMode = 'search'; scanEvent = null; scanDone = 0;
+    loadNotices();
+    refreshData();
+    if(done) setNoticeMsg(done + (done === 1 ? ' presenza registrata.' : ' presenze registrate.'), false);
+  }
 }
 
 function scanTick(){
   const video = $('scan-video');
-  if(video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth){
+  if(!scanPaused && video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth){
     // decoding a downscaled frame is plenty for a QR and keeps older phones smooth
     const w = 480;
     const h = Math.round(video.videoHeight * (w / video.videoWidth));
@@ -1192,11 +1256,46 @@ function scanTick(){
     const img = ctx.getImageData(0, 0, w, h);
     const found = window.jsQR ? window.jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' }) : null;
     if(found && found.data){
-      onScanResult(found.data);
-      return;
+      if(scanMode === 'checkin'){
+        // the gate keeps scanning: one person after another
+        handleCheckinScan(String(found.data).trim());
+      } else {
+        onScanResult(found.data);
+        return;
+      }
     }
   }
   scanFrameReq = requestAnimationFrame(scanTick);
+}
+
+async function handleCheckinScan(code){
+  const now = Date.now();
+  // the same card stays in frame for many frames after it's been read
+  if(!code || (code === lastScanCode && now - lastScanAt < 4000)) return;
+  lastScanCode = code; lastScanAt = now;
+  scanPaused = true;
+
+  const { data, error } = await sb.rpc('checkin_member', {
+    p_announcement_id: scanEvent.id, p_member_code: code
+  });
+  const row = Array.isArray(data) ? data[0] : data;
+
+  if(error || !row){
+    setScanHint(error ? error.message : 'Tessera non riconosciuta', 'err');
+  } else if(row.status === 'ok'){
+    scanDone++;
+    if(navigator.vibrate) navigator.vibrate(60);
+    setScanHint('✓ ' + row.full_name + '  ·  +' + row.points + ' punti', 'ok');
+  } else {
+    setScanHint('Già registrato: ' + row.full_name, 'warn');
+  }
+  const counter = $('scan-counter');
+  if(counter && row) counter.textContent = row.presenze;
+
+  setTimeout(()=>{
+    scanPaused = false;
+    if(scanStream) setScanHint('Inquadra il QR della tessera', '');
+  }, 1400);
 }
 
 async function onScanResult(text){
