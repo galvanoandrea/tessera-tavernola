@@ -154,6 +154,20 @@
 
   .view{display:none;} .view.active{display:block;}
 
+  /* auth: crest, perks and the chant */
+  .auth-crest{display:block;width:86px;height:auto;margin:0 auto 16px;}
+  .auth-perks{margin-top:30px;padding-top:24px;border-top:1px solid var(--line);}
+  .perk{display:flex;gap:11px;align-items:flex-start;margin-bottom:14px;}
+  .perk-ico{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:var(--cream);display:flex;align-items:center;justify-content:center;}
+  .perk-ico svg{width:16px;height:16px;}
+  .perk-t{font-size:13px;font-weight:700;line-height:1.25;}
+  .perk-d{font-size:11.5px;color:var(--ink-soft);margin-top:3px;line-height:1.4;}
+  .chant{margin-top:26px;border-radius:18px;padding:22px 18px;text-align:center;color:var(--white);position:relative;overflow:hidden;background:linear-gradient(135deg,var(--bordeaux) 0%,var(--bordeaux-dark) 60%,var(--bordeaux-deep) 100%);box-shadow:0 14px 26px -14px rgba(74,12,22,0.6);}
+  .chant img{position:absolute;right:-4%;top:50%;transform:translateY(-50%);width:38%;opacity:0.18;pointer-events:none;}
+  .chant .c-line{position:relative;z-index:2;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:27px;line-height:1.02;text-transform:uppercase;letter-spacing:0.01em;}
+  .chant .c-line em{font-style:normal;color:var(--gold-light);}
+  .chant .c-sub{position:relative;z-index:2;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;opacity:0.8;margin-top:9px;}
+
   /* bar panel */
   .search-row{display:flex;gap:8px;margin-bottom:14px;}
   .search-row input{flex:1;}
@@ -173,6 +187,7 @@
 
   <!-- AUTH -->
   <div id="view-auth" class="auth-wrap">
+    <img class="auth-crest" src="crest.png" alt="Stemma U.S. Tavernola">
     <div class="auth-title">Tessera <span>Tifoso</span><br>U.S. Tavernola</div>
     <div class="auth-sub">Registrati o accedi per vedere la tua tessera digitale, i punti accumulati e i vantaggi disponibili.</div>
     <div id="auth-msg"></div>
@@ -217,6 +232,52 @@
     <div class="auth-switch">
       <span id="switch-to-signup">Non hai una tessera? <a>Registrati</a></span>
       <span id="switch-to-login" class="hide">Hai già un account? <a>Accedi</a></span>
+    </div>
+
+    <div class="auth-perks">
+      <div class="section-label">Perché fare la tessera</div>
+
+      <div class="perk">
+        <div class="perk-ico"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.2" stroke="#B41F32" stroke-width="1.6"/><path d="M14.6 9.4a3.4 3.4 0 100 5.2M9.2 11.2h4M9.2 13.2h4" stroke="#B41F32" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+        <div><div class="perk-t">Un punto per ogni euro</div>
+        <div class="perk-d">Ogni consumazione al Bar Sociale ti fa accumulare punti sulla tessera.</div></div>
+      </div>
+
+      <div class="perk">
+        <div class="perk-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 4.6 5 .7-3.6 3.5.85 5-4.45-2.4-4.45 2.4.85-5L4.8 8.3l5-.7L12 3z" stroke="#B41F32" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
+        <div><div class="perk-t">Punti anche dal campo</div>
+        <div class="perk-d">Ingressi alle partite, presenze agli eventi del club e giornate di volontariato.</div></div>
+      </div>
+
+      <div class="perk">
+        <div class="perk-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M5 9h14l-1 9a2 2 0 01-2 2H8a2 2 0 01-2-2L5 9z" stroke="#B41F32" stroke-width="1.6"/><path d="M9 9V6a3 3 0 016 0v3" stroke="#B41F32" stroke-width="1.6"/></svg></div>
+        <div><div class="perk-t">Premi da riscattare</div>
+        <div class="perk-d">Ingresso omaggio, buono bar, sconto sulla quota d'iscrizione e kit allenamento.</div></div>
+      </div>
+
+      <div class="perk">
+        <div class="perk-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M5 20v-6M12 20V7M19 20v-9" stroke="#B41F32" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+        <div><div class="perk-t">Sali di livello</div>
+        <div class="perk-d">Da Socio Bronzo a Socio Oro man mano che i punti crescono.</div></div>
+      </div>
+
+      <div class="perk">
+        <div class="perk-ico"><svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="9" r="3" stroke="#B41F32" stroke-width="1.6"/><circle cx="17" cy="10.5" r="2.2" stroke="#B41F32" stroke-width="1.6"/><path d="M3.5 19a5.5 5.5 0 0111 0M15 19a4 4 0 015.5-3.7" stroke="#B41F32" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+        <div><div class="perk-t">Tessera famiglia</div>
+        <div class="perk-d">Un genitore collega i figli e gestisce i punti di tutti da un unico account.</div></div>
+      </div>
+
+      <div class="perk">
+        <div class="perk-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10v4h3l6 4V6l-6 4H4z" stroke="#B41F32" stroke-width="1.6" stroke-linejoin="round"/><path d="M17.5 9.2a4 4 0 010 5.6" stroke="#B41F32" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+        <div><div class="perk-t">Non perdi una partita</div>
+        <div class="perk-d">Le date della Prima Squadra e gli avvisi del club direttamente sulla tessera.</div></div>
+      </div>
+
+      <div class="chant">
+        <img src="bird-watermark.svg" alt="">
+        <div class="c-line">Ali spiegate,<br>cuore bordeaux.<br><em>Forza Pelicans!</em></div>
+        <div class="c-sub">U.S. Tavernola · 2026 / 2027</div>
+      </div>
     </div>
   </div>
 
