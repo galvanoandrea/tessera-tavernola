@@ -1055,7 +1055,7 @@ async function barSearch(){
   const history = {};
   for(const p of data){
     const { data: txns } = await sb.from('point_transactions')
-      .select('id,delta,reason,created_at').eq('profile_id', p.id)
+      .select('id,delta,reason,created_at,locked').eq('profile_id', p.id)
       .order('created_at', { ascending:false });
     history[p.id] = txns || [];
   }
@@ -1073,7 +1073,9 @@ function renderBarCard(p, txns){
       '<div><div class="tl">'+escapeHtml(t.reason)+'</div><div class="td">'+d+'</div></div>'+
       '<div style="display:flex;align-items:center;gap:8px;">'+
         '<span class="tv '+sign+'">'+(t.delta>=0?'+':'')+t.delta+'</span>'+
-        '<button class="btn-mini" data-del-txn="'+escapeAttr(t.id)+'" title="Annulla movimento">Annulla</button>'+
+        (t.locked
+          ? '<span class="tag" title="Movimento non annullabile">Bloccato</span>'
+          : '<button class="btn-mini" data-del-txn="'+escapeAttr(t.id)+'" title="Annulla movimento">Annulla</button>')+
       '</div>'+
     '</div>';
   }).join('');
