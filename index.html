@@ -169,6 +169,19 @@
   .chant .c-line em{font-style:normal;color:var(--gold-light);}
   .chant .c-sub{position:relative;z-index:2;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;opacity:0.8;margin-top:9px;}
 
+  /* sponsors */
+  .spon{border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:9px;}
+  .spon .s-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .spon .s-name{font-size:14px;font-weight:800;line-height:1.2;}
+  .spon .s-off{flex:0 0 auto;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:17px;line-height:1;color:var(--bordeaux);background:rgba(180,31,50,0.08);border-radius:20px;padding:5px 10px;white-space:nowrap;}
+  .spon .s-cat{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-soft);margin-top:5px;}
+  .spon .s-desc{font-size:12px;color:var(--ink-soft);line-height:1.45;margin-top:7px;}
+  .spon .s-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center;}
+  .spon .s-links a{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.04em;padding:5px 9px;border-radius:20px;border:1.2px solid var(--line);color:var(--bordeaux);text-decoration:none;font-weight:600;}
+  .spon .s-addr{font-size:11px;color:var(--ink-soft);}
+  .spon.off{opacity:0.6;}
+  .spon-note{font-size:11.5px;color:var(--ink-soft);line-height:1.45;margin:-2px 0 12px;}
+
   /* double points campaign */
   .promo{display:flex;align-items:center;gap:12px;margin-top:18px;border-radius:16px;padding:14px 16px;background:linear-gradient(120deg,#1B1614 0%,#2E2622 100%);color:var(--gold-light);box-shadow:0 12px 22px -14px rgba(20,16,15,0.7);}
   .promo .p-mult{flex:0 0 auto;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:26px;line-height:1;color:var(--gold);}
@@ -394,8 +407,12 @@
 
       <!-- PREMI -->
       <div class="view" id="view-premi">
-        <div class="section-label">Vantaggi disponibili</div>
+        <div class="section-label">Premi da riscattare con i punti</div>
         <div id="rewards-list"><div class="empty">Caricamento premi…</div></div>
+
+        <div class="section-label">Convenzioni sponsor</div>
+        <div class="spon-note">Sconti riservati ai tesserati: mostra la tua tessera digitale al momento del pagamento. Non costano punti.</div>
+        <div id="sponsor-list"></div>
       </div>
 
       <!-- PROFILO -->
@@ -480,6 +497,22 @@
             <div class="field"><label>Punti presenza (check-in)</label><input type="number" id="n-points" value="10" min="0" step="1"></div>
             <button class="btn btn-primary" type="submit">Pubblica avviso</button>
           </form>
+        </div>
+
+        <div class="section-label">Convenzioni sponsor</div>
+        <div class="panel">
+          <div id="sponsor-msg"></div>
+          <form id="form-sponsor">
+            <div class="field"><label>Attività</label><input type="text" id="sp-name" placeholder="Havyar Pizzeria" required></div>
+            <div class="field"><label>Sconto riservato</label><input type="text" id="sp-offer" placeholder="−10%" required></div>
+            <div class="field"><label>Categoria</label><input type="text" id="sp-cat" placeholder="Ristorazione"></div>
+            <div class="field"><label>Condizioni</label><input type="text" id="sp-desc" placeholder="Esclusi menù fissi e asporto"></div>
+            <div class="field"><label>Indirizzo</label><input type="text" id="sp-addr" placeholder="Via Roma 12, Tavernola"></div>
+            <div class="field"><label>Telefono</label><input type="tel" id="sp-phone" placeholder="035 123456"></div>
+            <div class="field"><label>Sito web</label><input type="url" id="sp-web" placeholder="https://..."></div>
+            <button class="btn btn-primary" type="submit">Aggiungi convenzione</button>
+          </form>
+          <div id="sponsor-admin-list" style="margin-top:16px;"></div>
         </div>
 
         <div class="section-label">Punti doppi a tempo</div>
@@ -631,6 +664,7 @@ async function loadEverything(){
   await loadLeaderboard();
   await loadSettings();
   await loadCampaigns();
+  await loadSponsors();
   renderBirthday();
 
   if(myProfile.is_staff){
@@ -669,6 +703,7 @@ async function refreshData(){
     await loadNotices();
     await loadLeaderboard();
     await loadCampaigns();
+    await loadSponsors();
   } finally {
     refreshing = false;
   }
@@ -782,6 +817,117 @@ async function generateQR(){
 
 function escapeHtml(str){
   const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML;
+}
+
+/* ---------- CONVENZIONI ---------- */
+let sponsors = [];
+
+// only ever build links from addresses we understand
+function safeUrl(url){
+  const u = String(url || '').trim();
+  return /^https?:\/\//i.test(u) ? u : '';
+}
+
+async function loadSponsors(){
+  const { data } = await sb.from('sponsors').select('*')
+    .order('sort_order', { ascending:true }).order('name', { ascending:true });
+  sponsors = data || [];
+  renderSponsors();
+  renderSponsorsAdmin();
+}
+
+function sponsorCard(s, extra){
+  const links = [];
+  if(s.phone) links.push('<a href="tel:'+escapeAttr(s.phone.replace(/\s+/g,''))+'">Chiama</a>');
+  const web = safeUrl(s.website);
+  if(web) links.push('<a href="'+escapeAttr(web)+'" target="_blank" rel="noopener noreferrer">Sito</a>');
+  if(s.address) links.push('<span class="s-addr">'+escapeHtml(s.address)+'</span>');
+
+  return '<div class="spon'+(s.active ? '' : ' off')+'">'+
+    '<div class="s-top">'+
+      '<div><div class="s-name">'+escapeHtml(s.name)+(s.active ? '' : '<span class="tag">Nascosta</span>')+'</div>'+
+      (s.category ? '<div class="s-cat">'+escapeHtml(s.category)+'</div>' : '')+'</div>'+
+      '<div class="s-off">'+escapeHtml(s.offer)+'</div>'+
+    '</div>'+
+    (s.description ? '<div class="s-desc">'+escapeHtml(s.description)+'</div>' : '')+
+    (links.length ? '<div class="s-links">'+links.join('')+'</div>' : '')+
+    (extra || '')+
+  '</div>';
+}
+
+function renderSponsors(){
+  const el = $('sponsor-list');
+  if(!el) return;
+  const live = sponsors.filter(s => s.active);
+  if(!live.length){
+    el.innerHTML = '<div class="empty">Nessuna convenzione attiva al momento.</div>';
+    return;
+  }
+  el.innerHTML = live.map(s => sponsorCard(s)).join('');
+}
+
+function renderSponsorsAdmin(){
+  const el = $('sponsor-admin-list');
+  if(!el) return;
+  if(!sponsors.length){ el.innerHTML = '<div class="empty">Nessuna convenzione inserita.</div>'; return; }
+  el.innerHTML = sponsors.map(s => sponsorCard(s,
+    '<div class="fam-actions">'+
+      '<button class="btn-mini'+(s.active?'':' primary')+'" data-toggle-spon="'+escapeAttr(s.id)+'">'+
+        (s.active ? 'Nascondi' : 'Mostra')+'</button>'+
+      '<button class="btn-mini" data-del-spon="'+escapeAttr(s.id)+'">Elimina</button>'+
+    '</div>')).join('');
+}
+
+function setSponsorMsg(msg, isError){
+  const el = $('sponsor-msg');
+  if(!msg){ el.innerHTML=''; return; }
+  el.innerHTML = '<div class="msg '+(isError?'msg-error':'msg-ok')+'">'+escapeHtml(msg)+'</div>';
+}
+
+async function createSponsor(e){
+  e.preventDefault();
+  setSponsorMsg('');
+  const web = $('sp-web').value.trim();
+  if(web && !safeUrl(web)){
+    setSponsorMsg('Il sito deve iniziare con http:// o https://', true);
+    return;
+  }
+  const { error } = await sb.from('sponsors').insert({
+    name: $('sp-name').value.trim(),
+    offer: $('sp-offer').value.trim(),
+    category: $('sp-cat').value.trim() || null,
+    description: $('sp-desc').value.trim() || null,
+    address: $('sp-addr').value.trim() || null,
+    phone: $('sp-phone').value.trim() || null,
+    website: web || null,
+    created_by: myProfile.id
+  });
+  if(error){ setSponsorMsg(error.message, true); return; }
+  $('form-sponsor').reset();
+  await loadSponsors();
+  setSponsorMsg('Convenzione aggiunta.', false);
+}
+
+async function handleSponsorAction(e){
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  const d = btn.dataset;
+
+  if(d.toggleSpon){
+    const s = sponsors.find(x => x.id === d.toggleSpon);
+    const { error } = await sb.from('sponsors')
+      .update({ active: !(s && s.active) }).eq('id', d.toggleSpon);
+    if(error){ setSponsorMsg(error.message, true); return; }
+    await loadSponsors();
+    return;
+  }
+
+  if(d.delSpon){
+    if(!confirm('Eliminare questa convenzione?')) return;
+    const { error } = await sb.from('sponsors').delete().eq('id', d.delSpon);
+    if(error){ setSponsorMsg(error.message, true); return; }
+    await loadSponsors();
+  }
 }
 
 /* ---------- PUNTI DOPPI ---------- */
@@ -1432,6 +1578,8 @@ function bindEvents(){
     await loadLeaderboard();
   });
 
+  $('form-sponsor').addEventListener('submit', createSponsor);
+  $('view-avvisi').addEventListener('click', handleSponsorAction);
   $('form-campaign').addEventListener('submit', createCampaign);
   $('view-avvisi').addEventListener('click', handleCampaignAction);
   $('form-settings').addEventListener('submit', saveSettings);
