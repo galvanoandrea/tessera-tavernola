@@ -183,6 +183,13 @@
   .chant .c-line em{font-style:normal;color:var(--gold-light);}
   .chant .c-sub{position:relative;z-index:2;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;opacity:0.8;margin-top:9px;}
 
+  /* archive */
+  .att-group{margin-top:9px;}
+  .att-title{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:5px;}
+  .att-names{display:flex;flex-wrap:wrap;gap:5px;}
+  .att-names span{font-size:11px;padding:4px 8px;border-radius:20px;background:var(--cream);color:var(--black);}
+  .att-names span.miss{background:transparent;border:1px solid var(--line);color:var(--ink-soft);}
+
   /* volunteer shifts */
   .shift{display:flex;gap:12px;border:1px solid var(--line);border-left:3px solid var(--ok);border-radius:14px;padding:12px;margin-bottom:9px;}
   .shift.full{border-left-color:var(--line);}
@@ -602,6 +609,22 @@
         <div id="notice-admin-list"></div>
       </div>
 
+      <!-- ARCHIVIO (solo staff) -->
+      <div class="view" id="view-archivio">
+        <div class="section-label" id="roster-label">Tesserati</div>
+        <div class="search-row">
+          <input type="text" id="ar-search" placeholder="Cerca nome o numero tessera">
+          <button class="btn-sm" id="ar-csv" title="Scarica elenco">CSV</button>
+        </div>
+        <div id="roster-list"><div class="empty">Caricamento archivio…</div></div>
+
+        <div class="section-label">Presenze a partite ed eventi</div>
+        <div id="arch-events"></div>
+
+        <div class="section-label">Turni volontari svolti</div>
+        <div id="arch-shifts"></div>
+      </div>
+
       <!-- BAR (solo staff) -->
       <div class="view" id="view-bar">
         <div class="section-label">Assegna punti — cerca tesserato</div>
@@ -624,6 +647,7 @@
       <button class="tab" data-view="punti"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 4.6 5 .7-3.6 3.5.85 5-4.45-2.4-4.45 2.4.85-5L4.8 8.3l5-.7L12 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span>Portafoglio</span></button>
       <button class="tab" data-view="premi"><svg viewBox="0 0 24 24" fill="none"><path d="M20 7H4l1.2 11.2a2 2 0 002 1.8h9.6a2 2 0 002-1.8L20 7z" stroke="currentColor" stroke-width="1.6"/><path d="M8 7a4 4 0 018 0" stroke="currentColor" stroke-width="1.6"/></svg><span>Premi</span></button>
       <button class="tab hide" id="tab-avvisi" data-view="avvisi"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10v4h3l6 4V6l-6 4H4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M17.5 9.2a4 4 0 010 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Avvisi</span></button>
+      <button class="tab hide" id="tab-archivio" data-view="archivio"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16v12a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 19V7z" stroke="currentColor" stroke-width="1.6"/><path d="M3 4.5h18V7H3zM9.5 11h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Archivio</span></button>
       <button class="tab hide" id="tab-bar" data-view="bar"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 8.4v7.2M8.4 12h7.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Punti</span></button>
     </div>
   </div>
@@ -713,11 +737,13 @@ async function loadEverything(){
   await loadCampaigns();
   await loadSponsors();
   await loadShifts();
+  await loadArchive();
   renderBirthday();
 
   if(myProfile.is_staff){
     $('tab-bar').classList.remove('hide');
     $('tab-avvisi').classList.remove('hide');
+    $('tab-archivio').classList.remove('hide');
   }
 }
 
@@ -753,6 +779,7 @@ async function refreshData(){
     await loadCampaigns();
     await loadSponsors();
     await loadShifts();
+    await loadArchive();
   } finally {
     refreshing = false;
   }
@@ -866,6 +893,166 @@ async function generateQR(){
 
 function escapeHtml(str){
   const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML;
+}
+
+/* ---------- ARCHIVIO (staff) ---------- */
+let roster = [];
+let attendanceDetail = {};   // announcement id -> rows, loaded on demand
+let openEventId = null;
+
+async function loadArchive(){
+  if(!myProfile || !myProfile.is_staff) return;
+  const { data } = await sb.rpc('member_roster');
+  roster = data || [];
+  renderRoster();
+  renderArchiveEvents();
+  renderArchiveShifts();
+}
+
+function renderRoster(){
+  const el = $('roster-list');
+  if(!el) return;
+  const q = ($('ar-search').value || '').trim().toLowerCase();
+  const rows = q
+    ? roster.filter(r => (r.full_name||'').toLowerCase().includes(q) ||
+                         (r.member_code||'').toLowerCase().includes(q))
+    : roster;
+
+  $('roster-label').textContent = 'Tesserati — ' + roster.length +
+    (roster.length === 1 ? ' tessera' : ' tessere');
+
+  if(!rows.length){ el.innerHTML = '<div class="empty">Nessun tesserato trovato.</div>'; return; }
+
+  el.innerHTML = rows.map(r => {
+    const tags = (r.is_staff ? '<span class="tag">Staff</span>' : '') +
+                 (r.is_managed ? '<span class="tag">Gestita da '+escapeHtml(r.managed_by_name||'')+'</span>' : '');
+    const since = r.created_at
+      ? new Date(r.created_at).toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'})
+      : '—';
+    const contact = [r.email, r.phone].filter(Boolean).join(' · ');
+    return '<div class="fam">'+
+      '<div class="fam-av">'+escapeHtml(initials(r.full_name))+'</div>'+
+      '<div class="fam-info">'+
+        '<div class="fam-name">'+escapeHtml(r.full_name)+tags+'</div>'+
+        '<div class="fam-meta">'+escapeHtml(r.member_code||'')+' · '+escapeHtml(r.role||'')+' · dal '+escapeHtml(since)+'</div>'+
+        '<div class="fam-meta">'+r.balance+' pt · '+
+          r.presenze+(r.presenze === 1 ? ' presenza' : ' presenze')+' · '+
+          r.turni+(r.turni === 1 ? ' turno' : ' turni')+'</div>'+
+        (contact ? '<div class="fam-meta">'+escapeHtml(contact)+'</div>' : '')+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function downloadRosterCsv(){
+  const head = ['Nome','Tessera','Ruolo','Email','Telefono','Città','Data nascita',
+                'Iscritto il','Punti','Presenze','Turni','Gestita da','Staff'];
+  const cell = (v) => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[";\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  };
+  const lines = [head.join(';')].concat(roster.map(r => [
+    r.full_name, r.member_code, r.role, r.email, r.phone, r.city, r.birth_date,
+    r.created_at ? new Date(r.created_at).toLocaleDateString('it-IT') : '',
+    r.balance, r.presenze, r.turni, r.managed_by_name, r.is_staff ? 'sì' : ''
+  ].map(cell).join(';')));
+
+  // BOM so Excel opens the accents correctly
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'tesserati-tavernola-' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function renderArchiveEvents(){
+  const el = $('arch-events');
+  if(!el) return;
+  const evs = notices.slice().sort((a,b) =>
+    new Date(b.event_at || b.created_at) - new Date(a.event_at || a.created_at));
+  if(!evs.length){ el.innerHTML = '<div class="empty">Nessun evento registrato.</div>'; return; }
+
+  el.innerHTML = evs.map(n => {
+    const presenti = attendance[n.id] || 0;
+    const when = n.event_at
+      ? new Date(n.event_at).toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'})
+      : 'senza data';
+    let detail = '';
+    if(openEventId === n.id){
+      const rows = attendanceDetail[n.id];
+      if(!rows){
+        detail = '<div class="att-group"><div class="att-title">Caricamento…</div></div>';
+      } else {
+        const yes = rows.filter(r => r.presente), no = rows.filter(r => !r.presente);
+        detail =
+          '<div class="att-group"><div class="att-title">Presenti ('+yes.length+')</div>'+
+            (yes.length ? '<div class="att-names">'+yes.map(r=>'<span>'+escapeHtml(r.full_name)+'</span>').join('')+'</div>'
+                        : '<div class="empty" style="padding:6px 0;">Nessuno registrato.</div>')+
+          '</div>'+
+          '<div class="att-group"><div class="att-title">Assenti ('+no.length+')</div>'+
+            (no.length ? '<div class="att-names">'+no.map(r=>'<span class="miss">'+escapeHtml(r.full_name)+'</span>').join('')+'</div>'
+                       : '<div class="empty" style="padding:6px 0;">Nessuno.</div>')+
+          '</div>';
+      }
+    }
+    return '<div class="camp">'+
+      '<div class="c-i">'+
+        '<div class="c-n">'+escapeHtml(n.title)+'<span class="tag">'+escapeHtml(n.kind)+'</span></div>'+
+        '<div class="c-w">'+escapeHtml(when)+' · '+presenti+(presenti===1?' presenza':' presenze')+'</div>'+
+        '<div class="fam-actions"><button class="btn-mini'+(openEventId===n.id?' primary':'')+'" data-att-event="'+escapeAttr(n.id)+'">'+
+          (openEventId === n.id ? 'Chiudi elenco' : 'Chi c’era')+'</button></div>'+
+        detail+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function renderArchiveShifts(){
+  const el = $('arch-shifts');
+  if(!el) return;
+  const past = shifts.slice().sort((a,b) => new Date(b.starts_at) - new Date(a.starts_at));
+  if(!past.length){ el.innerHTML = '<div class="empty">Nessun turno registrato.</div>'; return; }
+
+  el.innerHTML = past.map(s => {
+    const people = shiftPeople[s.shift_id] || [];
+    const ok = people.filter(p => p.status === 'confermato');
+    const iscritti = people.filter(p => p.status === 'iscritto');
+    const assenti = people.filter(p => p.status === 'assente');
+    const when = new Date(s.starts_at).toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'});
+    const group = (title, list, cls) => list.length
+      ? '<div class="att-group"><div class="att-title">'+title+' ('+list.length+')</div>'+
+        '<div class="att-names">'+list.map(p=>'<span'+(cls?' class="'+cls+'"':'')+'>'+escapeHtml(p.full_name)+'</span>').join('')+'</div></div>'
+      : '';
+    return '<div class="camp">'+
+      '<div class="c-i">'+
+        '<div class="c-n">'+escapeHtml(s.title)+'</div>'+
+        '<div class="c-w">'+escapeHtml(when)+' · '+s.points+' pt · '+people.length+'/'+s.slots+' posti</div>'+
+        group('Hanno partecipato', ok, '')+
+        group('Iscritti da confermare', iscritti, 'miss')+
+        group('Assenti', assenti, 'miss')+
+        (people.length ? '' : '<div class="sh-people">Nessuna disponibilità data.</div>')+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+async function handleArchiveAction(e){
+  const btn = e.target.closest('button[data-att-event]');
+  if(!btn) return;
+  const id = btn.dataset.attEvent;
+  if(openEventId === id){ openEventId = null; renderArchiveEvents(); return; }
+
+  openEventId = id;
+  renderArchiveEvents();
+  if(!attendanceDetail[id]){
+    const { data } = await sb.rpc('event_attendance_detail', { p_announcement_id: id });
+    attendanceDetail[id] = data || [];
+  }
+  renderArchiveEvents();
 }
 
 /* ---------- TURNI VOLONTARI ---------- */
@@ -1794,6 +1981,9 @@ function bindEvents(){
     await loadLeaderboard();
   });
 
+  $('view-archivio').addEventListener('click', handleArchiveAction);
+  $('ar-search').addEventListener('input', renderRoster);
+  $('ar-csv').addEventListener('click', downloadRosterCsv);
   $('form-shift').addEventListener('submit', createShift);
   $('view-avvisi').addEventListener('click', handleShiftAction);
   $('view-tessera').addEventListener('click', handleShiftAction);
