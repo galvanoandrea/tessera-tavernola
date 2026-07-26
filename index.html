@@ -169,6 +169,22 @@
   .chant .c-line em{font-style:normal;color:var(--gold-light);}
   .chant .c-sub{position:relative;z-index:2;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;opacity:0.8;margin-top:9px;}
 
+  /* volunteer shifts */
+  .shift{display:flex;gap:12px;border:1px solid var(--line);border-left:3px solid var(--ok);border-radius:14px;padding:12px;margin-bottom:9px;}
+  .shift.full{border-left-color:var(--line);}
+  .shift.mine{border-left-color:var(--bordeaux);background:rgba(180,31,50,0.04);}
+  .shift .sh-date{flex:0 0 auto;width:42px;text-align:center;padding-top:2px;}
+  .shift .sh-day{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:22px;line-height:1;color:var(--ok);}
+  .shift.mine .sh-day{color:var(--bordeaux);}
+  .shift .sh-mon{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-soft);margin-top:3px;}
+  .shift .sh-body{flex:1;min-width:0;}
+  .shift .sh-t{font-size:13.5px;font-weight:700;line-height:1.3;}
+  .shift .sh-m{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-soft);margin-top:4px;}
+  .shift .sh-n{font-size:12px;color:var(--ink-soft);margin-top:5px;line-height:1.4;}
+  .shift .sh-slots{flex:0 0 auto;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:var(--ok);}
+  .shift.full .sh-slots{color:var(--ink-soft);}
+  .sh-people{font-size:11.5px;color:var(--ink-soft);margin-top:7px;line-height:1.5;}
+
   /* sponsors */
   .spon{border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:9px;}
   .spon .s-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
@@ -380,6 +396,7 @@
         <div id="campaign-box"></div>
         <div id="bday-box"></div>
         <div id="notice-list"></div>
+        <div id="shift-list"></div>
 
         <div class="points-box">
           <div class="points-row"><div class="points-num" id="points-total">0<small>punti</small></div><div class="tier-chip" id="tier-chip-2">—</div></div>
@@ -497,6 +514,22 @@
             <div class="field"><label>Punti presenza (check-in)</label><input type="number" id="n-points" value="10" min="0" step="1"></div>
             <button class="btn btn-primary" type="submit">Pubblica avviso</button>
           </form>
+        </div>
+
+        <div class="section-label">Turni volontari</div>
+        <div class="panel">
+          <div id="shift-msg"></div>
+          <form id="form-shift">
+            <div class="field"><label>Turno</label><input type="text" id="sh-title" placeholder="Bar Sociale — 1° tempo" required></div>
+            <div class="field"><label>Inizio</label><input type="datetime-local" id="sh-from" required></div>
+            <div class="field"><label>Fine</label><input type="datetime-local" id="sh-to"></div>
+            <div class="field"><label>Luogo</label><input type="text" id="sh-place" placeholder="Campo Comunale"></div>
+            <div class="field"><label>Posti disponibili</label><input type="number" id="sh-slots" value="2" min="1" step="1"></div>
+            <div class="field"><label>Punti a chi partecipa</label><input type="number" id="sh-points" value="50" min="0" step="1"></div>
+            <div class="field"><label>Note</label><input type="text" id="sh-notes" placeholder="Portare grembiule"></div>
+            <button class="btn btn-primary" type="submit">Apri il turno</button>
+          </form>
+          <div id="shift-admin-list" style="margin-top:16px;"></div>
         </div>
 
         <div class="section-label">Convenzioni sponsor</div>
@@ -665,6 +698,7 @@ async function loadEverything(){
   await loadSettings();
   await loadCampaigns();
   await loadSponsors();
+  await loadShifts();
   renderBirthday();
 
   if(myProfile.is_staff){
@@ -704,6 +738,7 @@ async function refreshData(){
     await loadLeaderboard();
     await loadCampaigns();
     await loadSponsors();
+    await loadShifts();
   } finally {
     refreshing = false;
   }
@@ -817,6 +852,173 @@ async function generateQR(){
 
 function escapeHtml(str){
   const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML;
+}
+
+/* ---------- TURNI VOLONTARI ---------- */
+let shifts = [];
+let shiftPeople = {};   // shift id -> who signed up (staff only)
+
+async function loadShifts(){
+  const { data } = await sb.rpc('shift_overview', { p_profile_id: profile ? profile.id : null });
+  shifts = data || [];
+
+  shiftPeople = {};
+  if(myProfile && myProfile.is_staff){
+    for(const s of shifts){
+      const { data: people } = await sb.rpc('shift_signups', { p_shift_id: s.shift_id });
+      shiftPeople[s.shift_id] = people || [];
+    }
+  }
+
+  renderShifts();
+  renderShiftsAdmin();
+}
+
+function shiftWhen(s){
+  const from = new Date(s.starts_at);
+  const bits = [from.toLocaleDateString('it-IT',{weekday:'long'}) + ' · ' +
+                from.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})];
+  if(s.ends_at){
+    bits[0] += '–' + new Date(s.ends_at).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  }
+  if(s.location) bits.push(s.location);
+  return bits.join(' · ');
+}
+
+function shiftCard(s, actions, extra){
+  const from = new Date(s.starts_at);
+  const full = s.iscritti >= s.slots;
+  const mine = !!s.mio_stato;
+  const cls = 'shift' + (mine ? ' mine' : (full ? ' full' : ''));
+  return '<div class="'+cls+'">'+
+    '<div class="sh-date"><div class="sh-day">'+from.getDate()+'</div>'+
+      '<div class="sh-mon">'+MONTHS_SHORT[from.getMonth()]+'</div></div>'+
+    '<div class="sh-body">'+
+      '<div class="sh-t">'+escapeHtml(s.title)+
+        (mine ? '<span class="tag">'+(s.mio_stato === 'confermato' ? 'Confermato' : 'Ti sei offerto')+'</span>' : '')+
+        (s.active ? '' : '<span class="tag">Chiuso</span>')+'</div>'+
+      '<div class="sh-m">'+escapeHtml(shiftWhen(s))+' · '+s.points+' pt</div>'+
+      (s.notes ? '<div class="sh-n">'+escapeHtml(s.notes)+'</div>' : '')+
+      (extra || '')+
+      (actions || '')+
+    '</div>'+
+    '<div class="sh-slots">'+s.iscritti+'/'+s.slots+'</div>'+
+  '</div>';
+}
+
+function renderShifts(){
+  const el = $('shift-list');
+  if(!el) return;
+  const now = Date.now();
+  const open = shifts.filter(s => s.active && new Date(s.starts_at).getTime() > now).slice(0, 5);
+  if(!open.length){ el.innerHTML = ''; return; }
+
+  el.innerHTML = '<div class="section-label">Turni volontari — dai una mano</div>' +
+    open.map(s => {
+      const full = s.iscritti >= s.slots;
+      let actions = '';
+      if(s.mio_stato === 'iscritto'){
+        actions = '<div class="fam-actions"><button class="btn-mini" data-quit-shift="'+escapeAttr(s.shift_id)+'">Non posso più</button></div>';
+      } else if(!s.mio_stato){
+        actions = full
+          ? '<div class="fam-actions"><button class="btn-mini" disabled>Turno completo</button></div>'
+          : '<div class="fam-actions"><button class="btn-mini primary" data-join-shift="'+escapeAttr(s.shift_id)+'">Mi offro</button></div>';
+      }
+      return shiftCard(s, actions);
+    }).join('');
+}
+
+function renderShiftsAdmin(){
+  const el = $('shift-admin-list');
+  if(!el) return;
+  if(!shifts.length){ el.innerHTML = '<div class="empty">Nessun turno aperto.</div>'; return; }
+
+  el.innerHTML = shifts.map(s => {
+    const people = shiftPeople[s.shift_id] || [];
+    const names = people.length
+      ? people.map(x => escapeHtml(x.full_name) +
+          (x.status === 'confermato' ? ' ✓' : (x.status === 'assente' ? ' (assente)' : ''))).join(', ')
+      : 'nessuno per ora';
+    const pending = people.some(x => x.status === 'iscritto');
+    const actions = '<div class="fam-actions">'+
+      (pending ? '<button class="btn-mini primary" data-confirm-shift="'+escapeAttr(s.shift_id)+'">Conferma presenze</button>' : '')+
+      '<button class="btn-mini'+(s.active?'':' primary')+'" data-toggle-shift="'+escapeAttr(s.shift_id)+'">'+
+        (s.active ? 'Chiudi' : 'Riapri')+'</button>'+
+      '<button class="btn-mini" data-del-shift="'+escapeAttr(s.shift_id)+'">Elimina</button>'+
+    '</div>';
+    return shiftCard(s, actions, '<div class="sh-people">'+names+'</div>');
+  }).join('');
+}
+
+function setShiftMsg(msg, isError){
+  const el = $('shift-msg');
+  if(!el) return;
+  if(!msg){ el.innerHTML=''; return; }
+  el.innerHTML = '<div class="msg '+(isError?'msg-error':'msg-ok')+'">'+escapeHtml(msg)+'</div>';
+}
+
+async function createShift(e){
+  e.preventDefault();
+  setShiftMsg('');
+  const from = $('sh-from').value, to = $('sh-to').value;
+  if(!from){ setShiftMsg('Indica quando inizia il turno.', true); return; }
+  if(to && new Date(to) <= new Date(from)){ setShiftMsg('La fine deve essere successiva all’inizio.', true); return; }
+
+  const { error } = await sb.from('volunteer_shifts').insert({
+    title: $('sh-title').value.trim(),
+    starts_at: new Date(from).toISOString(),
+    ends_at: to ? new Date(to).toISOString() : null,
+    location: $('sh-place').value.trim() || null,
+    slots: parseInt($('sh-slots').value, 10) || 1,
+    points: parseInt($('sh-points').value, 10) || 0,
+    notes: $('sh-notes').value.trim() || null,
+    created_by: myProfile.id
+  });
+  if(error){ setShiftMsg(error.message, true); return; }
+  $('form-shift').reset();
+  await loadShifts();
+  setShiftMsg('Turno aperto.', false);
+}
+
+async function handleShiftAction(e){
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  const d = btn.dataset;
+
+  if(d.joinShift || d.quitShift){
+    const id = d.joinShift || d.quitShift;
+    const fn = d.joinShift ? 'volunteer_signup' : 'volunteer_withdraw';
+    const { error } = await sb.rpc(fn, { p_shift_id: id, p_profile_id: profile.id });
+    if(error){ alert(error.message); }
+    await loadShifts();
+    return;
+  }
+
+  if(d.confirmShift){
+    if(!confirm('Confermare le presenze e accreditare i punti?')) return;
+    const { data, error } = await sb.rpc('confirm_shift', { p_shift_id: d.confirmShift });
+    if(error){ setShiftMsg(error.message, true); return; }
+    await loadShifts();
+    await refreshData();
+    setShiftMsg((data || 0) + ' presenze confermate.', false);
+    return;
+  }
+
+  if(d.toggleShift){
+    const s = shifts.find(x => x.shift_id === d.toggleShift);
+    const { error } = await sb.from('volunteer_shifts')
+      .update({ active: !(s && s.active) }).eq('id', d.toggleShift);
+    if(error){ setShiftMsg(error.message, true); return; }
+    await loadShifts();
+    return;
+  }
+
+  if(d.delShift){
+    if(!confirm('Eliminare questo turno? Le iscrizioni verranno rimosse.')) return;
+    const { error } = await sb.from('volunteer_shifts').delete().eq('id', d.delShift);
+    if(error){ setShiftMsg(error.message, true); return; }
+    await loadShifts();
+  }
 }
 
 /* ---------- CONVENZIONI ---------- */
@@ -1578,6 +1780,9 @@ function bindEvents(){
     await loadLeaderboard();
   });
 
+  $('form-shift').addEventListener('submit', createShift);
+  $('view-avvisi').addEventListener('click', handleShiftAction);
+  $('view-tessera').addEventListener('click', handleShiftAction);
   $('form-sponsor').addEventListener('submit', createSponsor);
   $('view-avvisi').addEventListener('click', handleSponsorAction);
   $('form-campaign').addEventListener('submit', createCampaign);
